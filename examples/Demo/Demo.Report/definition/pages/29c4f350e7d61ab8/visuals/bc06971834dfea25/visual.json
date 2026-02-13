@@ -1,0 +1,44 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json",
+  "name": "bc06971834dfea25",
+  "position": {
+    "tabOrder": 1228,
+    "y": 312,
+    "width": 28,
+    "x": 304,
+    "height": 25,
+    "z": 1228
+  },
+  "visual": {
+    "visualType": "image",
+    "objects": {
+      "image": [
+        {
+          "properties": {
+            "sourceFile": {
+              "image": {
+                "url": {
+                  "expr": {
+                    "ResourcePackageItem": {
+                      "PackageType": 1,
+                      "PackageName": "RegisteredResources",
+                      "ItemName": "ic_fluent_settings_24_filled102618747069814_yellow.svg"
+                    }
+                  }
+                },
+                "name": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'ic_fluent_settings_24_filled102618747069814_yellow.svg'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

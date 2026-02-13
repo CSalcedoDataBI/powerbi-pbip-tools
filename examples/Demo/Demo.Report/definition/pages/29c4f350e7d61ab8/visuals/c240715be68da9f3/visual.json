@@ -1,0 +1,44 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.4.0/schema.json",
+  "name": "c240715be68da9f3",
+  "position": {
+    "tabOrder": 1235,
+    "y": 312,
+    "width": 28,
+    "x": 500,
+    "height": 25,
+    "z": 1235
+  },
+  "visual": {
+    "visualType": "image",
+    "objects": {
+      "image": [
+        {
+          "properties": {
+            "sourceFile": {
+              "image": {
+                "url": {
+                  "expr": {
+                    "ResourcePackageItem": {
+                      "PackageType": 1,
+                      "PackageName": "RegisteredResources",
+                      "ItemName": "ic_fluent_person_24_filled2588398396499294_yellow.svg"
+                    }
+                  }
+                },
+                "name": {
+                  "expr": {
+                    "Literal": {
+                      "Value": "'ic_fluent_person_24_filled2588398396499294_yellow.svg'"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "drillFilterOtherVisuals": true
+  }
+}

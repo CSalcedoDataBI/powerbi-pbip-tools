@@ -1,0 +1,976 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/report/3.0.0/schema.json",
+  "themeCollection": {
+    "baseTheme": {
+      "name": "CY25SU11",
+      "reportVersionAtImport": {
+        "visual": "2.4.0",
+        "report": "3.0.0",
+        "page": "2.3.0"
+      },
+      "type": "SharedResources"
+    }
+  },
+  "objects": {
+    "section": [
+      {
+        "properties": {
+          "verticalAlignment": {
+            "expr": {
+              "Literal": {
+                "Value": "'Top'"
+              }
+            }
+          }
+        }
+      }
+    ]
+  },
+  "resourcePackages": [
+    {
+      "name": "SharedResources",
+      "type": "SharedResources",
+      "items": [
+        {
+          "name": "CY25SU11",
+          "path": "BaseThemes/CY25SU11.json",
+          "type": "BaseTheme"
+        }
+      ]
+    },
+    {
+      "name": "RegisteredResources",
+      "type": "RegisteredResources",
+      "items": [
+        {
+          "name": "ic_fluent_add_24_filled6142298714188419_blue.svg",
+          "path": "ic_fluent_add_24_filled6142298714188419_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_down_24_filled8675320782329066_blue.svg",
+          "path": "ic_fluent_arrow_down_24_filled8675320782329066_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_left_24_filled3786951422560362_blue.svg",
+          "path": "ic_fluent_arrow_left_24_filled3786951422560362_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_sync_24_filled6055653175410014_blue.svg",
+          "path": "ic_fluent_arrow_sync_24_filled6055653175410014_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_up_24_filled06250141986383029_blue.svg",
+          "path": "ic_fluent_arrow_up_24_filled06250141986383029_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_attach_24_filled3053710157655247_blue.svg",
+          "path": "ic_fluent_attach_24_filled3053710157655247_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_building_24_filled14432188152878034_blue.svg",
+          "path": "ic_fluent_building_24_filled14432188152878034_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_calendar_24_filled30095189991805327_blue.svg",
+          "path": "ic_fluent_calendar_24_filled30095189991805327_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chat_32_filled8329232916511349_blue.svg",
+          "path": "ic_fluent_chat_32_filled8329232916511349_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_checkmark_24_filled22050280057210447_blue.svg",
+          "path": "ic_fluent_checkmark_24_filled22050280057210447_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_up_24_filled3107135120492984_blue.svg",
+          "path": "ic_fluent_chevron_up_24_filled3107135120492984_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_clock_24_filled6269832413225166_blue.svg",
+          "path": "ic_fluent_clock_24_filled6269832413225166_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_comment_48_filled3328154134312368_blue.svg",
+          "path": "ic_fluent_comment_48_filled3328154134312368_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_copy_32_filled027307551190252966_blue.svg",
+          "path": "ic_fluent_copy_32_filled027307551190252966_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_line_24_filled8592277945084426_blue.svg",
+          "path": "ic_fluent_data_line_24_filled8592277945084426_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_pie_24_filled5839546109571372_blue.svg",
+          "path": "ic_fluent_data_pie_24_filled5839546109571372_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_database_32_filled9298521197631492_blue.svg",
+          "path": "ic_fluent_database_32_filled9298521197631492_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_delete_24_filled48095982494333267_blue.svg",
+          "path": "ic_fluent_delete_24_filled48095982494333267_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_dismiss_24_filled5229979352940058_blue.svg",
+          "path": "ic_fluent_dismiss_24_filled5229979352940058_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_document_24_filled11633912749461417_blue.svg",
+          "path": "ic_fluent_document_24_filled11633912749461417_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_edit_24_filled9158696404956791_blue.svg",
+          "path": "ic_fluent_edit_24_filled9158696404956791_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_eye_24_filled9142103312749841_blue.svg",
+          "path": "ic_fluent_eye_24_filled9142103312749841_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_filter_24_filled9817689176558397_blue.svg",
+          "path": "ic_fluent_filter_24_filled9817689176558397_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_filter_32_filled11489524541020368_blue.svg",
+          "path": "ic_fluent_filter_32_filled11489524541020368_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_folder_32_filled4625127960049715_blue.svg",
+          "path": "ic_fluent_folder_32_filled4625127960049715_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_grid_24_filled8994846023883182_blue.svg",
+          "path": "ic_fluent_grid_24_filled8994846023883182_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_home_24_filled11087194082567486_blue.svg",
+          "path": "ic_fluent_home_24_filled11087194082567486_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_image_32_filled44940160462846246_blue.svg",
+          "path": "ic_fluent_image_32_filled44940160462846246_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_info_24_filled7628038090990421_blue.svg",
+          "path": "ic_fluent_info_24_filled7628038090990421_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_link_48_filled8570933641603203_blue.svg",
+          "path": "ic_fluent_link_48_filled8570933641603203_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_location_24_filled2762021583337778_blue.svg",
+          "path": "ic_fluent_location_24_filled2762021583337778_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_mail_32_filled8653130642490741_blue.svg",
+          "path": "ic_fluent_mail_32_filled8653130642490741_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_money_24_filled9516515796332466_blue.svg",
+          "path": "ic_fluent_money_24_filled9516515796332466_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_people_24_filled769883806660564_blue.svg",
+          "path": "ic_fluent_people_24_filled769883806660564_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_person_24_filled2588398396499294_blue.svg",
+          "path": "ic_fluent_person_24_filled2588398396499294_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_play_48_filled4117897493538789_blue.svg",
+          "path": "ic_fluent_play_48_filled4117897493538789_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_save_32_filled997415168083505_blue.svg",
+          "path": "ic_fluent_save_32_filled997415168083505_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_search_24_filled9130668959125045_blue.svg",
+          "path": "ic_fluent_search_24_filled9130668959125045_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_send_32_filled8989976247666259_blue.svg",
+          "path": "ic_fluent_send_32_filled8989976247666259_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_settings_24_filled102618747069814_blue.svg",
+          "path": "ic_fluent_settings_24_filled102618747069814_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_share_24_filled04897622692647108_blue.svg",
+          "path": "ic_fluent_share_24_filled04897622692647108_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_stop_24_filled5237401085776204_blue.svg",
+          "path": "ic_fluent_stop_24_filled5237401085776204_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_table_24_filled2898220668867607_blue.svg",
+          "path": "ic_fluent_table_24_filled2898220668867607_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_target_24_filled9251019701645171_blue.svg",
+          "path": "ic_fluent_target_24_filled9251019701645171_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_trophy_32_filled6751821975518361_blue.svg",
+          "path": "ic_fluent_trophy_32_filled6751821975518361_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_warning_24_filled08536744507174987_blue.svg",
+          "path": "ic_fluent_warning_24_filled08536744507174987_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_warning_32_filled07592648349008468_blue.svg",
+          "path": "ic_fluent_warning_32_filled07592648349008468_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_add_24_filled6142298714188419_yellow.svg",
+          "path": "ic_fluent_add_24_filled6142298714188419_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_down_24_filled8675320782329066_yellow.svg",
+          "path": "ic_fluent_arrow_down_24_filled8675320782329066_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_left_24_filled3786951422560362_yellow.svg",
+          "path": "ic_fluent_arrow_left_24_filled3786951422560362_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_sync_24_filled6055653175410014_yellow.svg",
+          "path": "ic_fluent_arrow_sync_24_filled6055653175410014_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_up_24_filled06250141986383029_yellow.svg",
+          "path": "ic_fluent_arrow_up_24_filled06250141986383029_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_attach_24_filled3053710157655247_yellow.svg",
+          "path": "ic_fluent_attach_24_filled3053710157655247_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_building_24_filled14432188152878034_yellow.svg",
+          "path": "ic_fluent_building_24_filled14432188152878034_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_calendar_24_filled30095189991805327_yellow.svg",
+          "path": "ic_fluent_calendar_24_filled30095189991805327_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chat_32_filled8329232916511349_yellow.svg",
+          "path": "ic_fluent_chat_32_filled8329232916511349_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_checkmark_24_filled22050280057210447_yellow.svg",
+          "path": "ic_fluent_checkmark_24_filled22050280057210447_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_up_24_filled3107135120492984_yellow.svg",
+          "path": "ic_fluent_chevron_up_24_filled3107135120492984_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_clock_24_filled6269832413225166_yellow.svg",
+          "path": "ic_fluent_clock_24_filled6269832413225166_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_comment_48_filled3328154134312368_yellow.svg",
+          "path": "ic_fluent_comment_48_filled3328154134312368_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_copy_32_filled027307551190252966_yellow.svg",
+          "path": "ic_fluent_copy_32_filled027307551190252966_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_line_24_filled8592277945084426_yellow.svg",
+          "path": "ic_fluent_data_line_24_filled8592277945084426_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_pie_24_filled5839546109571372_yellow.svg",
+          "path": "ic_fluent_data_pie_24_filled5839546109571372_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_database_32_filled9298521197631492_yellow.svg",
+          "path": "ic_fluent_database_32_filled9298521197631492_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_delete_24_filled48095982494333267_yellow.svg",
+          "path": "ic_fluent_delete_24_filled48095982494333267_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_dismiss_24_filled5229979352940058_yellow.svg",
+          "path": "ic_fluent_dismiss_24_filled5229979352940058_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_document_24_filled11633912749461417_yellow.svg",
+          "path": "ic_fluent_document_24_filled11633912749461417_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_edit_24_filled9158696404956791_yellow.svg",
+          "path": "ic_fluent_edit_24_filled9158696404956791_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_eye_24_filled9142103312749841_yellow.svg",
+          "path": "ic_fluent_eye_24_filled9142103312749841_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_filter_24_filled9817689176558397_yellow.svg",
+          "path": "ic_fluent_filter_24_filled9817689176558397_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_filter_32_filled11489524541020368_yellow.svg",
+          "path": "ic_fluent_filter_32_filled11489524541020368_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_folder_32_filled4625127960049715_yellow.svg",
+          "path": "ic_fluent_folder_32_filled4625127960049715_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_grid_24_filled8994846023883182_yellow.svg",
+          "path": "ic_fluent_grid_24_filled8994846023883182_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_home_24_filled11087194082567486_yellow.svg",
+          "path": "ic_fluent_home_24_filled11087194082567486_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_image_32_filled44940160462846246_yellow.svg",
+          "path": "ic_fluent_image_32_filled44940160462846246_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_info_24_filled7628038090990421_yellow.svg",
+          "path": "ic_fluent_info_24_filled7628038090990421_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_link_48_filled8570933641603203_yellow.svg",
+          "path": "ic_fluent_link_48_filled8570933641603203_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_location_24_filled2762021583337778_yellow.svg",
+          "path": "ic_fluent_location_24_filled2762021583337778_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_mail_32_filled8653130642490741_yellow.svg",
+          "path": "ic_fluent_mail_32_filled8653130642490741_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_money_24_filled9516515796332466_yellow.svg",
+          "path": "ic_fluent_money_24_filled9516515796332466_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_people_24_filled769883806660564_yellow.svg",
+          "path": "ic_fluent_people_24_filled769883806660564_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_person_24_filled2588398396499294_yellow.svg",
+          "path": "ic_fluent_person_24_filled2588398396499294_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_play_48_filled4117897493538789_yellow.svg",
+          "path": "ic_fluent_play_48_filled4117897493538789_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_save_32_filled997415168083505_yellow.svg",
+          "path": "ic_fluent_save_32_filled997415168083505_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_search_24_filled9130668959125045_yellow.svg",
+          "path": "ic_fluent_search_24_filled9130668959125045_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_send_32_filled8989976247666259_yellow.svg",
+          "path": "ic_fluent_send_32_filled8989976247666259_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_settings_24_filled102618747069814_yellow.svg",
+          "path": "ic_fluent_settings_24_filled102618747069814_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_share_24_filled04897622692647108_yellow.svg",
+          "path": "ic_fluent_share_24_filled04897622692647108_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_stop_24_filled5237401085776204_yellow.svg",
+          "path": "ic_fluent_stop_24_filled5237401085776204_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_table_24_filled2898220668867607_yellow.svg",
+          "path": "ic_fluent_table_24_filled2898220668867607_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_target_24_filled9251019701645171_yellow.svg",
+          "path": "ic_fluent_target_24_filled9251019701645171_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_trophy_32_filled6751821975518361_yellow.svg",
+          "path": "ic_fluent_trophy_32_filled6751821975518361_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_warning_24_filled08536744507174987_yellow.svg",
+          "path": "ic_fluent_warning_24_filled08536744507174987_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_warning_32_filled07592648349008468_yellow.svg",
+          "path": "ic_fluent_warning_32_filled07592648349008468_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_apps_list_32_regular15964717775898007_blue.svg",
+          "path": "ic_fluent_apps_list_32_regular15964717775898007_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_apps_list_32_regular15964717775898007_yellow.svg",
+          "path": "ic_fluent_apps_list_32_regular15964717775898007_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_download_24_fi9109312585825732_blue.svg",
+          "path": "ic_fluent_arrow_download_24_fi9109312585825732_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_download_24_fi9109312585825732_yellow.svg",
+          "path": "ic_fluent_arrow_download_24_fi9109312585825732_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_right_24_fille9939092921487942_blue.svg",
+          "path": "ic_fluent_arrow_right_24_fille9939092921487942_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_right_24_fille9939092921487942_yellow.svg",
+          "path": "ic_fluent_arrow_right_24_fille9939092921487942_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_calendar_24_regular33784328613156145_blue.svg",
+          "path": "ic_fluent_calendar_24_regular33784328613156145_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_calendar_24_regular33784328613156145_yellow.svg",
+          "path": "ic_fluent_calendar_24_regular33784328613156145_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chart_multiple_24_fi40172923620964085_blue.svg",
+          "path": "ic_fluent_chart_multiple_24_fi40172923620964085_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chart_multiple_24_fi40172923620964085_yellow.svg",
+          "path": "ic_fluent_chart_multiple_24_fi40172923620964085_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_checkmark_circle_24_6600040915065654_blue.svg",
+          "path": "ic_fluent_checkmark_circle_24_6600040915065654_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_checkmark_circle_24_6600040915065654_yellow.svg",
+          "path": "ic_fluent_checkmark_circle_24_6600040915065654_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_down_24_fill17991322253438546_blue.svg",
+          "path": "ic_fluent_chevron_down_24_fill17991322253438546_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_down_24_fill17991322253438546_yellow.svg",
+          "path": "ic_fluent_chevron_down_24_fill17991322253438546_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_left_24_fill15806728368561562_blue.svg",
+          "path": "ic_fluent_chevron_left_24_fill15806728368561562_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_left_24_fill15806728368561562_yellow.svg",
+          "path": "ic_fluent_chevron_left_24_fill15806728368561562_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_right_32_fil45648671729779744_blue.svg",
+          "path": "ic_fluent_chevron_right_32_fil45648671729779744_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_right_32_fil45648671729779744_yellow.svg",
+          "path": "ic_fluent_chevron_right_32_fil45648671729779744_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_bar_vertical_24871319736535036_blue.svg",
+          "path": "ic_fluent_data_bar_vertical_24871319736535036_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_bar_vertical_24871319736535036_yellow.svg",
+          "path": "ic_fluent_data_bar_vertical_24871319736535036_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_funnel_24_fille3946628535440664_blue.svg",
+          "path": "ic_fluent_data_funnel_24_fille3946628535440664_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_funnel_24_fille3946628535440664_yellow.svg",
+          "path": "ic_fluent_data_funnel_24_fille3946628535440664_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_trending_24_fil42225269351002903_blue.svg",
+          "path": "ic_fluent_data_trending_24_fil42225269351002903_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_trending_24_fil42225269351002903_yellow.svg",
+          "path": "ic_fluent_data_trending_24_fil42225269351002903_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_folder_open_24_fille39123184724737436_blue.svg",
+          "path": "ic_fluent_folder_open_24_fille39123184724737436_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_folder_open_24_fille39123184724737436_yellow.svg",
+          "path": "ic_fluent_folder_open_24_fille39123184724737436_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_more_horizontal_32_f14097760433878892_blue.svg",
+          "path": "ic_fluent_more_horizontal_32_f14097760433878892_blue.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_more_horizontal_32_f14097760433878892_yellow.svg",
+          "path": "ic_fluent_more_horizontal_32_f14097760433878892_yellow.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_add_24_filled6142298714188419_red.svg",
+          "path": "ic_fluent_add_24_filled6142298714188419_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_apps_list_32_regular15964717775898007_red.svg",
+          "path": "ic_fluent_apps_list_32_regular15964717775898007_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_down_24_filled8675320782329066_red.svg",
+          "path": "ic_fluent_arrow_down_24_filled8675320782329066_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_download_24_fi9109312585825732_red.svg",
+          "path": "ic_fluent_arrow_download_24_fi9109312585825732_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_left_24_filled3786951422560362_red.svg",
+          "path": "ic_fluent_arrow_left_24_filled3786951422560362_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_right_24_fille9939092921487942_red.svg",
+          "path": "ic_fluent_arrow_right_24_fille9939092921487942_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_sync_24_filled6055653175410014_red.svg",
+          "path": "ic_fluent_arrow_sync_24_filled6055653175410014_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_arrow_up_24_filled06250141986383029_red.svg",
+          "path": "ic_fluent_arrow_up_24_filled06250141986383029_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_attach_24_filled3053710157655247_red.svg",
+          "path": "ic_fluent_attach_24_filled3053710157655247_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_building_24_filled14432188152878034_red.svg",
+          "path": "ic_fluent_building_24_filled14432188152878034_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_calendar_24_filled30095189991805327_red.svg",
+          "path": "ic_fluent_calendar_24_filled30095189991805327_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_calendar_24_regular33784328613156145_red.svg",
+          "path": "ic_fluent_calendar_24_regular33784328613156145_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chart_multiple_24_fi40172923620964085_red.svg",
+          "path": "ic_fluent_chart_multiple_24_fi40172923620964085_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chat_32_filled8329232916511349_red.svg",
+          "path": "ic_fluent_chat_32_filled8329232916511349_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_checkmark_24_filled22050280057210447_red.svg",
+          "path": "ic_fluent_checkmark_24_filled22050280057210447_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_checkmark_circle_24_6600040915065654_red.svg",
+          "path": "ic_fluent_checkmark_circle_24_6600040915065654_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_down_24_fill17991322253438546_red.svg",
+          "path": "ic_fluent_chevron_down_24_fill17991322253438546_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_left_24_fill15806728368561562_red.svg",
+          "path": "ic_fluent_chevron_left_24_fill15806728368561562_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_right_32_fil45648671729779744_red.svg",
+          "path": "ic_fluent_chevron_right_32_fil45648671729779744_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_chevron_up_24_filled3107135120492984_red.svg",
+          "path": "ic_fluent_chevron_up_24_filled3107135120492984_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_clock_24_filled6269832413225166_red.svg",
+          "path": "ic_fluent_clock_24_filled6269832413225166_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_comment_48_filled3328154134312368_red.svg",
+          "path": "ic_fluent_comment_48_filled3328154134312368_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_copy_32_filled027307551190252966_red.svg",
+          "path": "ic_fluent_copy_32_filled027307551190252966_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_bar_vertical_24871319736535036_red.svg",
+          "path": "ic_fluent_data_bar_vertical_24871319736535036_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_funnel_24_fille3946628535440664_red.svg",
+          "path": "ic_fluent_data_funnel_24_fille3946628535440664_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_line_24_filled8592277945084426_red.svg",
+          "path": "ic_fluent_data_line_24_filled8592277945084426_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_pie_24_filled5839546109571372_red.svg",
+          "path": "ic_fluent_data_pie_24_filled5839546109571372_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_data_trending_24_fil42225269351002903_red.svg",
+          "path": "ic_fluent_data_trending_24_fil42225269351002903_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_database_32_filled9298521197631492_red.svg",
+          "path": "ic_fluent_database_32_filled9298521197631492_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_delete_24_filled48095982494333267_red.svg",
+          "path": "ic_fluent_delete_24_filled48095982494333267_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_dismiss_24_filled5229979352940058_red.svg",
+          "path": "ic_fluent_dismiss_24_filled5229979352940058_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_document_24_filled11633912749461417_red.svg",
+          "path": "ic_fluent_document_24_filled11633912749461417_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_edit_24_filled9158696404956791_red.svg",
+          "path": "ic_fluent_edit_24_filled9158696404956791_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_eye_24_filled9142103312749841_red.svg",
+          "path": "ic_fluent_eye_24_filled9142103312749841_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_filter_24_filled9817689176558397_red.svg",
+          "path": "ic_fluent_filter_24_filled9817689176558397_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_filter_32_filled11489524541020368_red.svg",
+          "path": "ic_fluent_filter_32_filled11489524541020368_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_folder_32_filled4625127960049715_red.svg",
+          "path": "ic_fluent_folder_32_filled4625127960049715_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_folder_open_24_fille39123184724737436_red.svg",
+          "path": "ic_fluent_folder_open_24_fille39123184724737436_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_grid_24_filled8994846023883182_red.svg",
+          "path": "ic_fluent_grid_24_filled8994846023883182_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_home_24_filled11087194082567486_red.svg",
+          "path": "ic_fluent_home_24_filled11087194082567486_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_image_32_filled44940160462846246_red.svg",
+          "path": "ic_fluent_image_32_filled44940160462846246_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_info_24_filled7628038090990421_red.svg",
+          "path": "ic_fluent_info_24_filled7628038090990421_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_link_48_filled8570933641603203_red.svg",
+          "path": "ic_fluent_link_48_filled8570933641603203_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_location_24_filled2762021583337778_red.svg",
+          "path": "ic_fluent_location_24_filled2762021583337778_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_mail_32_filled8653130642490741_red.svg",
+          "path": "ic_fluent_mail_32_filled8653130642490741_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_money_24_filled9516515796332466_red.svg",
+          "path": "ic_fluent_money_24_filled9516515796332466_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_more_horizontal_32_f14097760433878892_red.svg",
+          "path": "ic_fluent_more_horizontal_32_f14097760433878892_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_people_24_filled769883806660564_red.svg",
+          "path": "ic_fluent_people_24_filled769883806660564_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_person_24_filled2588398396499294_red.svg",
+          "path": "ic_fluent_person_24_filled2588398396499294_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_play_48_filled4117897493538789_red.svg",
+          "path": "ic_fluent_play_48_filled4117897493538789_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_save_32_filled997415168083505_red.svg",
+          "path": "ic_fluent_save_32_filled997415168083505_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_search_24_filled9130668959125045_red.svg",
+          "path": "ic_fluent_search_24_filled9130668959125045_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_send_32_filled8989976247666259_red.svg",
+          "path": "ic_fluent_send_32_filled8989976247666259_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_settings_24_filled102618747069814_red.svg",
+          "path": "ic_fluent_settings_24_filled102618747069814_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_share_24_filled04897622692647108_red.svg",
+          "path": "ic_fluent_share_24_filled04897622692647108_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_stop_24_filled5237401085776204_red.svg",
+          "path": "ic_fluent_stop_24_filled5237401085776204_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_table_24_filled2898220668867607_red.svg",
+          "path": "ic_fluent_table_24_filled2898220668867607_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_target_24_filled9251019701645171_red.svg",
+          "path": "ic_fluent_target_24_filled9251019701645171_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_trophy_32_filled6751821975518361_red.svg",
+          "path": "ic_fluent_trophy_32_filled6751821975518361_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_warning_24_filled08536744507174987_red.svg",
+          "path": "ic_fluent_warning_24_filled08536744507174987_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "ic_fluent_warning_32_filled07592648349008468_red.svg",
+          "path": "ic_fluent_warning_32_filled07592648349008468_red.svg",
+          "type": "Image"
+        },
+        {
+          "name": "title_bandera_colombia.svg",
+          "path": "title_bandera_colombia.svg",
+          "type": "Image"
+        }
+      ]
+    }
+  ],
+  "settings": {
+    "useStylableVisualContainerHeader": true,
+    "exportDataMode": "AllowSummarized",
+    "defaultDrillFilterOtherVisuals": true,
+    "allowChangeFilterTypes": true,
+    "useEnhancedTooltips": true,
+    "useDefaultAggregateDisplayName": true
+  }
+}
