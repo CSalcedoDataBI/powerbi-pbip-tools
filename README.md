@@ -23,6 +23,17 @@ Automatically change the color of **all SVG icons** in your Power BI PBIP projec
 
 **Use Case:** You have a report with 142 icons in blue, and you want to change them all to red **in 2 seconds** without opening Power BI Desktop.
 
+#### Workflow
+
+```mermaid
+flowchart LR
+    A["📂 PBIP Project"] --> B["🔍 detect-colors.ps1"]
+    B --> C["📊 Color Report"]
+    C --> D["🎨 recolor.ps1"]
+    D --> E["✅ SVGs Updated"]
+    E --> F["📊 Open in Power BI"]
+```
+
 **[📖 Read the full documentation →](skills/skill-svg-recolor-pbip/README.md)**
 
 **Quick Start:**
