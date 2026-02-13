@@ -1,74 +1,111 @@
-# 🛠️ Power BI PBIP Tools
+# 🛠️ Power BI PBIP Skills
 
-Automation tools for Power BI projects in **PBIP format**. Streamline your workflow with batch operations, SVG manipulation, and more.
+Automation skills for Power BI projects in **PBIP format**. Streamline your workflow with batch operations, SVG manipulation, and more.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Power BI](https://img.shields.io/badge/Power%20BI-PBIP-yellow)](https://powerbi.microsoft.com/)
-[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue)](https://docs.microsoft.com/en-us/powershell/)
+[![Power BI](https://img.shields.io/badge/Power%20BI-PBIP-F2C811?logo=powerbi)](https://powerbi.microsoft.com/)
+[![PowerShell](https://img.shields.io/badge/PowerShell-5.1%2B-blue?logo=powershell)](https://docs.microsoft.com/en-us/powershell/)
 
 ## 🎯 What is PBIP?
 
 PBIP (Power BI Project) is an **open format** that stores Power BI reports and semantic models as **plain text files**. This enables:
 
 - ✅ Version control with Git
-- ✅ Offline editing without Power BI Desktop
-- ✅ Automation and batch operations
-- ✅ Team collaboration
+- ✅ Collaboration via pull requests
+- ✅ Offline metadata editing
+- ✅ Automated batch operations
 
-## 🚀 Available Tools
+## 📦 Available Skills
 
-### 📦 SVG Recolor
+### 🎨 SVG Recolor
 
-Automatically change the color of **all SVG icons** in your Power BI report.
+Automatically change the color of **all SVG icons** in your Power BI PBIP project.
 
-**Use case**: You have 142 icons and want to change them from blue to red in 2 seconds.
+**Use Case:** You have a report with 142 icons in blue, and you want to change them all to red **in 2 seconds** without opening Power BI Desktop.
 
+**[📖 Read the full documentation →](svg-recolor/README.md)**
+
+**Quick Start:**
 ```powershell
-# Detect colors in your project
+# Detect all colors in your project
 .\svg-recolor\scripts\detect-colors.ps1 -PbipDir "C:\MyProject"
 
-# Change all icons to red
-.\svg-recolor\scripts\recolor.ps1 -PbipDir "C:\MyProject" -To "#FF0000"
+# Change all blue icons to red
+.\svg-recolor\scripts\recolor.ps1 -PbipDir "C:\MyProject" -From "#0078D4" -To "#DC143C"
 ```
 
-👉 **[Full Documentation](svg-recolor/README.md)**
+---
 
-## 📥 Installation
+## 🚀 Getting Started
 
-1. **Clone this repository**:
+### Prerequisites
+
+- **Power BI Desktop** (with PBIP format support)
+- **PowerShell 5.1+** (included in Windows)
+- **Git** (optional, for version control)
+
+### Installation
+
+1. **Clone this repository:**
    ```powershell
    git clone https://github.com/CSalcedoDataBI/powerbi-pbip-tools.git
    cd powerbi-pbip-tools
    ```
 
-2. **Requirements**:
-   - Windows PowerShell 5.1+ or PowerShell Core 7+
-   - A Power BI project in PBIP format
-
-## 📚 Documentation
-
-- [SVG Recolor Guide](docs/svg-recolor-guide.md) - Detailed tutorial
-- [Example Project](examples/Demo/) - Working demo
-
-## 🤝 Contributing
-
-Contributions are welcome! Feel free to:
-
-- Report bugs
-- Suggest new tools
-- Submit pull requests
-
-## 📄 License
-
-MIT License - see [LICENSE](LICENSE) file for details.
-
-## 👤 Author
-
-**Cristobal Salcedo**
-- Website: [csalcedodatabi.com](https://csalcedodatabi.com/)
-- GitHub: [@CSalcedoDataBI](https://github.com/CSalcedoDataBI)
-- LinkedIn: [Cristobal Salcedo](https://www.linkedin.com/in/cristobal-salcedo/)
+2. **Try the Demo project:**
+   ```powershell
+   # Open the Demo project in Power BI Desktop
+   start examples/Demo/Demo.pbip
+   
+   # Detect colors
+   .\svg-recolor\scripts\detect-colors.ps1 -PbipDir ".\examples\Demo"
+   
+   # Recolor all icons
+   .\svg-recolor\scripts\recolor.ps1 -PbipDir ".\examples\Demo" -From "#0078D4" -To "#DC143C"
+   ```
 
 ---
 
-⭐ If you find this useful, please star the repo!
+## 📚 Documentation
+
+- **[SVG Recolor Guide](docs/svg-recolor-guide.md)** - Complete tutorial with examples
+- **[SVG Recolor README](svg-recolor/README.md)** - Skill-specific documentation
+
+---
+
+## 🤝 Contributing
+
+This repository is designed to be **extensible**. If you create a new skill for Power BI PBIP automation, feel free to contribute!
+
+**Structure for new skills:**
+```
+powerbi-pbip-tools/
+├── your-skill-name/
+│   ├── README.md
+│   └── scripts/
+│       └── your-script.ps1
+├── docs/
+│   └── your-skill-guide.md
+└── examples/
+    └── YourExample/
+```
+
+---
+
+## 📄 License
+
+MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## 🔗 Links
+
+- **Author:** [Cristobal Salcedo](https://csalcedodatabi.com)
+- **Repository:** [github.com/CSalcedoDataBI/powerbi-pbip-tools](https://github.com/CSalcedoDataBI/powerbi-pbip-tools)
+- **Issues:** [Report a bug or request a feature](https://github.com/CSalcedoDataBI/powerbi-pbip-tools/issues)
+
+---
+
+## 🌟 More Skills Coming Soon
+
+This repository will grow with more automation skills for Power BI PBIP projects. Stay tuned!
