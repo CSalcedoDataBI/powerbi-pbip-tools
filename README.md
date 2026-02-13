@@ -17,21 +17,21 @@ PBIP (Power BI Project) is an **open format** that stores Power BI reports and s
 
 ## 📦 Available Skills
 
-### 🎨 SVG Recolor
+### 🎨 skill-svg-recolor-pbip
 
 Automatically change the color of **all SVG icons** in your Power BI PBIP project.
 
 **Use Case:** You have a report with 142 icons in blue, and you want to change them all to red **in 2 seconds** without opening Power BI Desktop.
 
-**[📖 Read the full documentation →](svg-recolor/README.md)**
+**[📖 Read the full documentation →](skills/skill-svg-recolor-pbip/README.md)**
 
 **Quick Start:**
 ```powershell
 # Detect all colors in your project
-.\svg-recolor\scripts\detect-colors.ps1 -PbipDir "C:\MyProject"
+.\skills\skill-svg-recolor-pbip\scripts\detect-colors.ps1 -PbipDir "C:\MyProject"
 
 # Change all blue icons to red
-.\svg-recolor\scripts\recolor.ps1 -PbipDir "C:\MyProject" -From "#0078D4" -To "#DC143C"
+.\skills\skill-svg-recolor-pbip\scripts\recolor.ps1 -PbipDir "C:\MyProject" -From "#0078D4" -To "#DC143C"
 ```
 
 ---
@@ -58,18 +58,18 @@ Automatically change the color of **all SVG icons** in your Power BI PBIP projec
    start examples/Demo/Demo.pbip
    
    # Detect colors
-   .\svg-recolor\scripts\detect-colors.ps1 -PbipDir ".\examples\Demo"
+   .\skills\skill-svg-recolor-pbip\scripts\detect-colors.ps1 -PbipDir ".\examples\Demo"
    
    # Recolor all icons
-   .\svg-recolor\scripts\recolor.ps1 -PbipDir ".\examples\Demo" -From "#0078D4" -To "#DC143C"
+   .\skills\skill-svg-recolor-pbip\scripts\recolor.ps1 -PbipDir ".\examples\Demo" -From "#0078D4" -To "#DC143C"
    ```
 
 ---
 
 ## 📚 Documentation
 
-- **[SVG Recolor Guide](docs/svg-recolor-guide.md)** - Complete tutorial with examples
-- **[SVG Recolor README](svg-recolor/README.md)** - Skill-specific documentation
+- **[SVG Recolor Guide](docs/skill-svg-recolor-pbip-guide.md)** - Complete tutorial with examples
+- **[SVG Recolor README](skills/skill-svg-recolor-pbip/README.md)** - Skill-specific documentation
 
 ---
 
@@ -78,14 +78,17 @@ Automatically change the color of **all SVG icons** in your Power BI PBIP projec
 This repository is designed to be **extensible**. If you create a new skill for Power BI PBIP automation, feel free to contribute!
 
 **Structure for new skills:**
-```
+```text
 powerbi-pbip-tools/
-├── your-skill-name/
-│   ├── README.md
-│   └── scripts/
-│       └── your-script.ps1
+├── skills/
+│   ├── skill-svg-recolor-pbip/      # Existing skill
+│   └── skill-your-name-pbip/        # Your new skill
+│       ├── README.md
+│       ├── SKILL.md                 # Optional: Standard skill format
+│       └── scripts/
+│           └── your-script.ps1
 ├── docs/
-│   └── your-skill-guide.md
+│   └── skill-your-name-pbip-guide.md
 └── examples/
     └── YourExample/
 ```
