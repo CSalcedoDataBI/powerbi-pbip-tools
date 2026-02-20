@@ -47,6 +47,38 @@ flowchart LR
 
 ---
 
+### 🧠 semantic-architect-powerbi
+
+Transform technical Power BI data models into **fully documented semantic models** — auto-generates descriptions, KPIs, and a complete Context Store using **MCP** (Model Context Protocol) as a bidirectional bridge.
+
+**Use Case:** You have a model with 12 tables and 87 undocumented columns. The skill scans the model, researches industry KPIs, generates business descriptions for every object, and writes them back — turning you from a manual builder into an **Intelligence Auditor**.
+
+#### Workflow
+
+```mermaid
+flowchart LR
+    A["🤖 Phase 1\nModel DNA Scan"] --> B["🔬 Phase 2\nDeep Research"]
+    B --> C["📋 Phase 3\nContext Store"]
+    C --> D["👤 Phase 4\nExpert Audit"]
+```
+
+| Phase | Action | Mode |
+|-------|--------|------|
+| 1. Scan | Extract tables, columns, relationships via MCP. Classify industry & architecture | 🤖 Auto |
+| 2. Research | Web search for industry KPIs, business questions, DAX patterns | 🤖 Auto |
+| 3. Context Store | Generate semantic map with descriptions, visibility rules & KPI catalog | 🤖 Auto |
+| 4. Audit | Expert reviews & approves → AI writes to the model via MCP | 👤 + 🤖 |
+
+**[📖 Read the full documentation →](skills/semantic-architect-powerbi/SKILL.md)**
+
+**Includes:**
+- 📄 Context Store template with 4 structured sections
+- 🔍 Industry research prompts for 7+ industries (Retail, Healthcare, Finance, Manufacturing, HR, Education, Logistics)
+- 📏 Naming conventions for DAX measures, descriptions & technical column detection
+- 📊 Complete Retail example (Contoso model)
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -54,6 +86,7 @@ flowchart LR
 - **Power BI Desktop** (with PBIP format support)
 - **PowerShell 5.1+** (included in Windows)
 - **Git** (optional, for version control)
+- **MCP Server** (required for semantic-architect-powerbi skill)
 
 ### Installation
 
@@ -81,6 +114,7 @@ flowchart LR
 
 - **[SVG Recolor Guide](docs/skill-svg-recolor-pbip-guide.md)** - Complete tutorial with examples
 - **[SVG Recolor README](skills/skill-svg-recolor-pbip/README.md)** - Skill-specific documentation
+- **[Semantic Architect SKILL.md](skills/semantic-architect-powerbi/SKILL.md)** - Full skill specification with 4-phase workflow
 
 ---
 
@@ -92,7 +126,8 @@ This repository is designed to be **extensible**. If you create a new skill for 
 ```text
 powerbi-pbip-tools/
 ├── skills/
-│   ├── skill-svg-recolor-pbip/      # Existing skill
+│   ├── skill-svg-recolor-pbip/      # SVG batch recoloring
+│   ├── semantic-architect-powerbi/  # Semantic model documentation
 │   └── skill-your-name-pbip/        # Your new skill
 │       ├── README.md
 │       ├── SKILL.md                 # Optional: Standard skill format
