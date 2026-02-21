@@ -1,6 +1,6 @@
 # 🛠️ Power BI PBIP Skills
 
-Automation skills for Power BI projects in **PBIP format**. Streamline your workflow with batch operations, SVG manipulation, and more.
+Automation skills for Power BI projects in **PBIP format**. Streamline your workflow with batch operations, SVG manipulation, semantic documentation, and more.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Power BI](https://img.shields.io/badge/Power%20BI-PBIP-F2C811?logo=powerbi)](https://powerbi.microsoft.com/)
@@ -17,11 +17,18 @@ PBIP (Power BI Project) is an **open format** that stores Power BI reports and s
 
 ## 📦 Available Skills
 
-### 🎨 skill-svg-recolor-pbip
+### 🎨 skill-svg-recolor-powerbi
 
 Automatically change the color of **all SVG icons** in your Power BI PBIP project.
 
 **Use Case:** You have a report with 142 icons in blue, and you want to change them all to red **in 2 seconds** without opening Power BI Desktop.
+
+**Clone only this skill:**
+```bash
+git clone --filter=blob:none --sparse https://github.com/CSalcedoDataBI/powerbi-pbip-tools.git
+cd powerbi-pbip-tools
+git sparse-checkout set skills/skill-svg-recolor-powerbi
+```
 
 #### Workflow
 
@@ -34,24 +41,31 @@ flowchart LR
     E --> F["📊 Open in Power BI"]
 ```
 
-**[📖 Read the full documentation →](skills/skill-svg-recolor-pbip/README.md)**
+**[📖 Read the full documentation →](skills/skill-svg-recolor-powerbi/README.md)**
 
 **Quick Start:**
 ```powershell
 # Detect all colors in your project
-.\skills\skill-svg-recolor-pbip\scripts\detect-colors.ps1 -PbipDir "C:\MyProject"
+.\skills\skill-svg-recolor-powerbi\scripts\detect-colors.ps1 -PbipDir "C:\MyProject"
 
 # Change all blue icons to red
-.\skills\skill-svg-recolor-pbip\scripts\recolor.ps1 -PbipDir "C:\MyProject" -From "#0078D4" -To "#DC143C"
+.\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir "C:\MyProject" -From "#0078D4" -To "#DC143C"
 ```
 
 ---
 
-### 🧠 semantic-architect-powerbi
+### 🧠 skill-semantic-architect-powerbi
 
 Transform technical Power BI data models into **fully documented semantic models** — auto-generates descriptions, KPIs, and a complete Context Store using **MCP** (Model Context Protocol) as a bidirectional bridge.
 
 **Use Case:** You have a model with 12 tables and 87 undocumented columns. The skill scans the model, researches industry KPIs, generates business descriptions for every object, and writes them back — turning you from a manual builder into an **Intelligence Auditor**.
+
+**Clone only this skill:**
+```bash
+git clone --filter=blob:none --sparse https://github.com/CSalcedoDataBI/powerbi-pbip-tools.git
+cd powerbi-pbip-tools
+git sparse-checkout set skills/skill-semantic-architect-powerbi
+```
 
 #### Workflow
 
@@ -69,13 +83,14 @@ flowchart LR
 | 3. Context Store | Generate semantic map with descriptions, visibility rules & KPI catalog | 🤖 Auto |
 | 4. Audit | Expert reviews & approves → AI writes to the model via MCP | 👤 + 🤖 |
 
-**[📖 Read the full documentation →](skills/semantic-architect-powerbi/SKILL.md)**
+**[📖 Documentación en Español →](skills/skill-semantic-architect-powerbi/SKILL.md)** · **[📖 English Documentation →](skills/skill-semantic-architect-powerbi/SKILL.en.md)**
 
 **Includes:**
 - 📄 Context Store template with 4 structured sections
-- 🔍 Industry research prompts for 7+ industries (Retail, Healthcare, Finance, Manufacturing, HR, Education, Logistics)
+- 🔍 Industry research prompts for 7+ industries
 - 📏 Naming conventions for DAX measures, descriptions & technical column detection
 - 📊 Complete Retail example (Contoso model)
+- 🌐 All documentation available in **Spanish** and **English** (`.en.md`)
 
 ---
 
@@ -86,7 +101,7 @@ flowchart LR
 - **Power BI Desktop** (with PBIP format support)
 - **PowerShell 5.1+** (included in Windows)
 - **Git** (optional, for version control)
-- **MCP Server** (required for semantic-architect-powerbi skill)
+- **MCP Server** (required for skill-semantic-architect-powerbi)
 
 ### Installation
 
@@ -96,25 +111,28 @@ flowchart LR
    cd powerbi-pbip-tools
    ```
 
-2. **Try the Demo project:**
+2. **Or clone only the skill you need:**
+   ```bash
+   git clone --filter=blob:none --sparse https://github.com/CSalcedoDataBI/powerbi-pbip-tools.git
+   cd powerbi-pbip-tools
+   git sparse-checkout set skills/skill-svg-recolor-powerbi
+   ```
+
+3. **Try the Demo project:**
    ```powershell
-   # Open the Demo project in Power BI Desktop
    start examples/Demo/Demo.pbip
-   
-   # Detect colors
-   .\skills\skill-svg-recolor-pbip\scripts\detect-colors.ps1 -PbipDir ".\examples\Demo"
-   
-   # Recolor all icons
-   .\skills\skill-svg-recolor-pbip\scripts\recolor.ps1 -PbipDir ".\examples\Demo" -From "#0078D4" -To "#DC143C"
+   .\skills\skill-svg-recolor-powerbi\scripts\detect-colors.ps1 -PbipDir ".\examples\Demo"
+   .\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir ".\examples\Demo" -From "#0078D4" -To "#DC143C"
    ```
 
 ---
 
 ## 📚 Documentation
 
-- **[SVG Recolor Guide](docs/skill-svg-recolor-pbip-guide.md)** - Complete tutorial with examples
-- **[SVG Recolor README](skills/skill-svg-recolor-pbip/README.md)** - Skill-specific documentation
-- **[Semantic Architect SKILL.md](skills/semantic-architect-powerbi/SKILL.md)** - Full skill specification with 4-phase workflow
+- **[SVG Recolor Guide](docs/skill-svg-recolor-powerbi-guide.md)** - Complete tutorial with examples
+- **[SVG Recolor README](skills/skill-svg-recolor-powerbi/README.md)** - Skill-specific documentation
+- **[Semantic Architect ES](skills/skill-semantic-architect-powerbi/SKILL.md)** - Documentación en español
+- **[Semantic Architect EN](skills/skill-semantic-architect-powerbi/SKILL.en.md)** - Full English specification
 
 ---
 
@@ -122,19 +140,22 @@ flowchart LR
 
 This repository is designed to be **extensible**. If you create a new skill for Power BI PBIP automation, feel free to contribute!
 
+**Naming convention:** `skill-{name}-powerbi`
+
 **Structure for new skills:**
 ```text
 powerbi-pbip-tools/
 ├── skills/
-│   ├── skill-svg-recolor-pbip/      # SVG batch recoloring
-│   ├── semantic-architect-powerbi/  # Semantic model documentation
-│   └── skill-your-name-pbip/        # Your new skill
+│   ├── skill-svg-recolor-powerbi/           # SVG batch recoloring
+│   ├── skill-semantic-architect-powerbi/    # Semantic model documentation
+│   └── skill-your-name-powerbi/             # Your new skill
 │       ├── README.md
-│       ├── SKILL.md                 # Optional: Standard skill format
+│       ├── SKILL.md                         # Standard skill format (ES)
+│       ├── SKILL.en.md                      # English version
 │       └── scripts/
 │           └── your-script.ps1
 ├── docs/
-│   └── skill-your-name-pbip-guide.md
+│   └── skill-your-name-powerbi-guide.md
 └── examples/
     └── YourExample/
 ```
