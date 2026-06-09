@@ -1,0 +1,23 @@
+createOrReplace
+
+	/// Clasifica cualquier medida contra su propia distribución estadística (media ± desv. estándar) calculada sobre todos los elementos de la dimensión. El umbral es data-driven, no arbitrario.
+	function PerformanceBand =
+			( metric : ANYREF, groupCol : ANYREF ) =>
+			    VAR _AllRows = CALCULATETABLE(
+			        ADDCOLUMNS( DISTINCT( groupCol ), "@val", CALCULATE( metric ) ),
+			        ALL( TABLEOF( groupCol ) )
+			    )
+			    VAR _Mean    = AVERAGEX( _AllRows, [@val] )
+			    VAR _StdDev  = STDEVX.P( _AllRows, [@val] )
+			    VAR _Current = metric
+			    RETURN
+			    SWITCH(
+			        TRUE(),
+			        ISBLANK( _Current ),             "—",
+			        _Current >= _Mean + _StdDev,     "★ Top",
+			        _Current >= _Mean,               "↑ Sobre promedio",
+			        _Current >= _Mean - _StdDev,     "↓ Bajo promedio",
+			                                         "⚠ Rezagado"
+			    )
+		lineageTag: ea74243b-dfe4-49a6-811c-5eedf3990c17
+

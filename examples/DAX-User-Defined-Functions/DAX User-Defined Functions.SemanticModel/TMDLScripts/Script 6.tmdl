@@ -1,0 +1,16 @@
+createOrReplace
+
+	/// Crecimiento Year-over-Year de cualquier medida sobre una columna de año. Usa ANYREF + TABLEOF.
+	function YoYGrowth =
+			(
+			    metric  : ANYREF,
+			    yearCol : ANYREF
+			) =>
+			    VAR _Current = metric
+			    VAR _Prior   = CALCULATE(
+			        metric,
+			        FILTER( ALL( TABLEOF( yearCol ) ), yearCol = MAX( yearCol ) - 1 )
+			    )
+			    RETURN DIVIDE( _Current - _Prior, _Prior )
+		lineageTag: 7abbe07f-57ed-4269-9d09-116033c65018
+

@@ -1,0 +1,11 @@
+createOrReplace
+
+	/// Calcula el margen bruto como porcentaje: (revenue - cost) / revenue.
+	function GrossMarginPct =
+			(
+			    revenue : NUMERIC,
+			    cost    : NUMERIC
+			) =>
+			    DIVIDE( revenue - cost, revenue )
+		lineageTag: 8afa3ffd-ee42-419e-a674-cfad14674d82
+

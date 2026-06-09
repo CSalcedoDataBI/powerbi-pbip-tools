@@ -1,0 +1,8 @@
+# Power BI Desktop local cache and user settings
+**/.pbi/cache.abf
+**/.pbi/localSettings.json
+**/.pbi/editorSettings.json
+
+# OS artifacts
+.DS_Store
+Thumbs.db

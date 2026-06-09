@@ -1,0 +1,12 @@
+createOrReplace
+
+	/// Participación de la selección actual sobre el total de una columna de agrupación. Usa ANYREF + TABLEOF + CALCULATE.
+	function ShareOfTotal =
+			(
+			    metric   : ANYREF,
+			    groupCol : ANYREF
+			) =>
+			    VAR _Total = CALCULATE( metric, ALL( TABLEOF( groupCol ) ) )
+			    RETURN DIVIDE( metric, _Total )
+		lineageTag: b80dd4b1-9216-467b-a25f-580250b3f98d
+

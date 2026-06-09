@@ -1,0 +1,6 @@
+createOrReplace
+
+	/// División segura: retorna BLANK() cuando el denominador es 0, evitando errores de división.
+	function SafeDivide = ( numerator : NUMERIC, denominator : NUMERIC ) => IF( denominator = 0, BLANK(), numerator / denominator )
+		lineageTag: f263dad6-0209-4f08-8898-6dd513a82009
+

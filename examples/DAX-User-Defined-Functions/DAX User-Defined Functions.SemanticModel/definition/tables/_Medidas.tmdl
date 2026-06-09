@@ -1,0 +1,65 @@
+/// Tabla dedicada para medidas
+table _Medidas
+	lineageTag: 60241dcc-ab31-43f0-a2c8-8e7ad7672eb6
+
+	/// Suma de ventas netas (Sales)
+	measure 'Total Sales' = SUM( financials[Sales] )
+		formatString: $#,0.00
+		lineageTag: b606473b-81b7-48f9-84ed-569e8ea3d78d
+
+	/// Suma del costo de ventas (COGS)
+	measure 'Total COGS' = SUM( financials[COGS] )
+		formatString: $#,0.00
+		lineageTag: e7d40f82-e92a-44bd-80e6-3f03f26615ef
+
+	/// Suma de la ganancia neta
+	measure 'Total Profit' = SUM( financials[Profit] )
+		formatString: $#,0.00
+		lineageTag: 840ef08a-69e8-4246-82b7-4ab75f6d74f4
+
+	/// Total de unidades vendidas
+	measure 'Total Units Sold' = SUM( financials[Units Sold] )
+		formatString: #,0
+		lineageTag: f6bcb1b6-8c90-47dd-9086-ea6819990d92
+
+	/// Margen bruto usando UDF GrossMarginPct
+	measure 'Gross Margin %' = GrossMarginPct( [Total Sales], [Total COGS] )
+		formatString: 0.0%
+		lineageTag: 20a0b438-4600-46cc-a755-6ca9ed07d77e
+
+	/// Tasa de descuento usando UDF SafeDivide (evita división por cero)
+	measure 'Discount Rate %' = SafeDivide( SUM( financials[Discounts] ), SUM( financials[Gross Sales] ) )
+		formatString: 0.0%
+		lineageTag: 13edb92a-fa61-4f2c-b14c-62c1c90a46c9
+
+	/// Clasifica el profit como Positivo / Neutro / Negativo usando UDF ClassifyValue
+	measure 'Profit Classification' = ClassifyValue( [Total Profit], 0 )
+		lineageTag: f75b2288-cdd0-4be8-9c3d-5634654bf35a
+
+	/// Crecimiento Year-over-Year de ventas usando UDF YoYGrowth con ANYREF
+	measure 'YoY Sales Growth' = YoYGrowth( [Total Sales], financials[Year] )
+		formatString: 0.0%
+		lineageTag: 3d26d647-b4a0-4c74-baf3-b1c08b013b74
+
+	/// Participación de ventas en el total del segmento usando UDF ShareOfTotal con ANYREF
+	measure 'Sales Share %' = ShareOfTotal( [Total Sales], financials[Segment] )
+		formatString: 0.0%
+		lineageTag: 8d3ec893-0165-46d8-9969-2914f33275c7
+
+	/// Clasifica el Profit de cada producto contra la distribución estadística del grupo. Umbral data-driven via PerformanceBand.
+	measure 'Profit Band' = PerformanceBand( [Total Profit], financials[Product] )
+		lineageTag: 13ecd209-bdd4-41c7-9103-0c5dd043f01e
+
+	/// Clasifica las Sales de cada producto contra la distribución estadística del grupo. Umbral data-driven via PerformanceBand.
+	measure 'Sales Band' = PerformanceBand( [Total Sales], financials[Product] )
+		lineageTag: d18d7538-2698-4e8a-91d1-a377edfd24f0
+
+	column Dummy
+		lineageTag: 2513e307-64ce-4b1e-b173-9dd45da06ab4
+		isNameInferred
+		sourceColumn: [Dummy]
+
+	partition _Medidas = calculated
+		mode: import
+		source = DATATABLE("Dummy", INTEGER, {{0}})
+

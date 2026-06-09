@@ -1,0 +1,43 @@
+createOrReplace
+
+	/// Clasifica un valor numérico como Positivo, Neutro o Negativo comparado contra un umbral.
+	function ClassifyValue = ( val : NUMERIC, threshold : NUMERIC ) => SWITCH( TRUE(), ISBLANK( val ), "Sin datos", val > threshold, "Positivo", val = threshold, "Neutro", "Negativo" )
+		lineageTag: 002e407b-67a3-443a-9066-f2b2497a761d
+
+	/// Calcula el margen bruto como porcentaje: (revenue - cost) / revenue.
+	function GrossMarginPct =
+			(
+			    revenue : NUMERIC,
+			    cost    : NUMERIC
+			) =>
+			    DIVIDE( revenue - cost, revenue )
+		lineageTag: 8afa3ffd-ee42-419e-a674-cfad14674d82
+
+	/// División segura: retorna BLANK() cuando el denominador es 0, evitando errores de división.
+	function SafeDivide = ( numerator : NUMERIC, denominator : NUMERIC ) => IF( denominator = 0, BLANK(), numerator / denominator )
+		lineageTag: f263dad6-0209-4f08-8898-6dd513a82009
+
+	/// Participación de la selección actual sobre el total de una columna de agrupación. Usa ANYREF + TABLEOF + CALCULATE.
+	function ShareOfTotal =
+			(
+			    metric   : ANYREF,
+			    groupCol : ANYREF
+			) =>
+			    VAR _Total = CALCULATE( metric, ALL( TABLEOF( groupCol ) ) )
+			    RETURN DIVIDE( metric, _Total )
+		lineageTag: b80dd4b1-9216-467b-a25f-580250b3f98d
+
+	/// Crecimiento Year-over-Year de cualquier medida sobre una columna de año. Usa ANYREF + TABLEOF.
+	function YoYGrowth =
+			(
+			    metric  : ANYREF,
+			    yearCol : ANYREF
+			) =>
+			    VAR _Current = metric
+			    VAR _Prior   = CALCULATE(
+			        metric,
+			        FILTER( ALL( TABLEOF( yearCol ) ), yearCol = MAX( yearCol ) - 1 )
+			    )
+			    RETURN DIVIDE( _Current - _Prior, _Prior )
+		lineageTag: 7abbe07f-57ed-4269-9d09-116033c65018
+

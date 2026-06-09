@@ -1,0 +1,178 @@
+table financials
+	lineageTag: a8cca9c0-b213-406a-a5a3-daafd4d8ae45
+
+	column Segment
+		dataType: string
+		lineageTag: 50f7416b-08a7-4266-96ce-a1cc4351602c
+		summarizeBy: none
+		sourceColumn: Segment
+
+		annotation SummarizationSetBy = Automatic
+
+	column Country
+		dataType: string
+		lineageTag: 9af2f2f1-e454-470d-aaf0-5ec1b9c72946
+		summarizeBy: none
+		sourceColumn: Country
+
+		annotation SummarizationSetBy = Automatic
+
+	column Product
+		dataType: string
+		lineageTag: 11962bef-b139-4a07-a592-f4635090c672
+		summarizeBy: none
+		sourceColumn: Product
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Discount Band'
+		dataType: string
+		lineageTag: b108fbeb-e102-4d85-b7f0-6c6a7d93fd4d
+		summarizeBy: none
+		sourceColumn: Discount Band
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Units Sold'
+		dataType: double
+		lineageTag: 7606b01e-5039-4ef9-bb84-ef4ffa9b1ff0
+		summarizeBy: sum
+		sourceColumn: Units Sold
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column 'Manufacturing Price'
+		dataType: int64
+		formatString: 0
+		lineageTag: d4938e09-35c1-435e-b3d5-7fe0c5dc1939
+		summarizeBy: sum
+		sourceColumn: Manufacturing Price
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Sale Price'
+		dataType: int64
+		formatString: 0
+		lineageTag: dbb39996-747c-4603-8627-58095addf15f
+		summarizeBy: sum
+		sourceColumn: Sale Price
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Gross Sales'
+		dataType: double
+		lineageTag: a1a847a5-f0f8-4602-89b5-2c9fd00b3067
+		summarizeBy: sum
+		sourceColumn: Gross Sales
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Discounts
+		dataType: double
+		lineageTag: 6c58894c-7e12-4250-b199-cb9ccdef5a5e
+		summarizeBy: sum
+		sourceColumn: Discounts
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Sales
+		dataType: double
+		lineageTag: 87c86e56-f281-495b-8bda-cfbab8ac82f3
+		summarizeBy: sum
+		sourceColumn: Sales
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column COGS
+		dataType: double
+		lineageTag: 655a32a5-65e1-4267-b5d9-bfd1691cecd4
+		summarizeBy: sum
+		sourceColumn: COGS
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Profit
+		dataType: double
+		lineageTag: 21b3646d-ebcd-443f-812b-8f17185d7a4e
+		summarizeBy: sum
+		sourceColumn: Profit
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation PBI_FormatHint = {"isGeneralNumber":true}
+
+	column Date
+		dataType: dateTime
+		formatString: Long Date
+		lineageTag: 65e29063-1a3e-4aee-a33b-aaaf48f20025
+		summarizeBy: none
+		sourceColumn: Date
+
+		annotation SummarizationSetBy = Automatic
+
+		annotation UnderlyingDateTimeDataType = Date
+
+	column 'Month Number'
+		dataType: int64
+		formatString: 0
+		lineageTag: eb339672-0b0c-4339-8ef0-62dcaf33e40f
+		summarizeBy: sum
+		sourceColumn: Month Number
+
+		annotation SummarizationSetBy = Automatic
+
+	column 'Month Name'
+		dataType: string
+		lineageTag: 75ad4fc0-dde4-4b3f-b9e5-45292e8e48fa
+		summarizeBy: none
+		sourceColumn: Month Name
+
+		annotation SummarizationSetBy = Automatic
+
+	column Year
+		dataType: int64
+		formatString: 0
+		lineageTag: 4c1d2168-fc4e-4fff-b650-7daf58f4c704
+		summarizeBy: sum
+		sourceColumn: Year
+
+		annotation SummarizationSetBy = Automatic
+
+	partition financials = m
+		mode: import
+		source =
+				let
+				    // ── Portable data source ──────────────────────────────────────────────
+				    // Data is fetched directly from the public GitHub repository.
+				    // Works on any PC with internet — no local path configuration needed.
+				    // Source: Microsoft Financial Sample (public domain)
+				    Source             = Csv.Document(
+				                            Web.Contents("https://raw.githubusercontent.com/CSalcedoDataBI/powerbi-pbip-tools/main/examples/DAX-User-Defined-Functions/data/financials.csv"),
+				                            [Delimiter=",", Columns=16, Encoding=65001, QuoteStyle=QuoteStyle.None]
+				                        ),
+				    #"Promoted Headers" = Table.PromoteHeaders(Source, [PromoteAllScalars=true]),
+				    #"Changed Type"     = Table.TransformColumnTypes(#"Promoted Headers", {
+				                           {"Segment", type text}, {"Country", type text},
+				                           {"Product", type text}, {"Discount Band", type text},
+				                           {"Units Sold", type number}, {"Manufacturing Price", Int64.Type},
+				                           {"Sale Price", Int64.Type}, {"Gross Sales", type number},
+				                           {"Discounts", type number}, {"Sales", type number},
+				                           {"COGS", type number}, {"Profit", type number},
+				                           {"Date", type date}, {"Month Number", Int64.Type},
+				                           {"Month Name", type text}, {"Year", Int64.Type}
+				                       })
+				in
+				    #"Changed Type"
+
+	annotation PBI_ResultType = Table
+
