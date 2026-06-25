@@ -94,6 +94,30 @@ flowchart LR
 
 ---
 
+### 📊 dashboard — Interactive HTML Dashboard Generator
+
+A **Claude Code plugin** (`/dashboard`) that connects to a **Power BI** model via **MCP**
+and generates a standalone, interactive HTML dashboard — KPI cards, sparklines and
+trend/breakdown charts — from a single command. No HTML required.
+
+**Use Case:** You have a Power BI model open and want a shareable, offline HTML dashboard
+in minutes. Run `/dashboard`, and Claude queries the model and fills a design-consistent
+template with the real values.
+
+**Three parts:** `commands/dashboard.md` (the command) · `skills/dashboard-builder.md`
+(the query plan + design rules) · `tools/dashboard/template.html` (the visual scaffold).
+
+**Clone only this plugin:**
+```bash
+git clone --filter=blob:none --sparse https://github.com/CSalcedoDataBI/powerbi-pbip-tools.git
+cd powerbi-pbip-tools
+git sparse-checkout set commands skills/dashboard-builder.md tools/dashboard
+```
+
+**[📖 Read the full documentation →](tools/dashboard/README.md)** · **[▶ Live demo](https://csalcedodatabi.com/demo/contoso-dashboard)**
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
