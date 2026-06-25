@@ -1,0 +1,834 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>/* PLACEHOLDER: MODEL_NAME */ — Sales Analysis</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#EEECEA; --sur:#FFF; --sur2:#F5F4F1;
+  --bor:rgba(0,0,0,0.08); --bor2:rgba(0,0,0,0.15);
+  --tx:#1A1A18; --tx2:#5A5A56; --tx3:#9A9A94;
+  --r:13px;
+  --good:#27AE60; --bad:#E53935; --accent:#1E40AF;
+  --sh:0 1px 3px rgba(0,0,0,.05),0 3px 14px rgba(0,0,0,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:var(--bg);color:var(--tx);font-size:13px}
+
+/* ══ TOPBAR ══════════════════════════════════════════ */
+.topbar{background:linear-gradient(135deg,#1a2840 0%,#0d1b2a 100%);color:#fff;padding:12px 28px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.logo{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#3B82F6,#8B5CF6);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.topbar h1{font-size:19px;font-weight:700;letter-spacing:-.3px;flex:1;min-width:180px}
+.topbar h1 span{color:#93C5FD}
+.year-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.yl{font-size:10px;color:rgba(255,255,255,.4);text-transform:uppercase;letter-spacing:.5px;margin-right:2px}
+.ypill{font-size:11px;font-weight:500;padding:3px 11px;border-radius:20px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.06);color:rgba(255,255,255,.65);cursor:pointer;transition:all .14s;outline:none}
+.ypill:hover{background:rgba(255,255,255,.13);color:#fff}
+.ypill.active{background:#fff;color:#0d1b2a;border-color:#fff;font-weight:600}
+
+/* ══ PAGE NAV ════════════════════════════════════════ */
+.page-nav{background:var(--sur);border-bottom:1px solid var(--bor);padding:0 28px;display:flex;align-items:center}
+.pnav{font-size:12.5px;font-weight:500;padding:11px 20px;cursor:pointer;color:var(--tx3);border:none;border-bottom:2.5px solid transparent;background:none;transition:all .14s;outline:none;white-space:nowrap;display:flex;align-items:center;gap:6px}
+.pnav:hover{color:var(--tx2)}
+.pnav.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:600}
+.pnav-sep{width:1px;height:18px;background:var(--bor2);margin:0 4px}
+.metric-pill{display:none;align-items:center;gap:6px;margin-left:auto;background:#EFF6FF;border:1px solid #BFDBFE;border-radius:20px;padding:4px 13px 4px 9px;font-size:11px;color:var(--accent)}
+.metric-pill.show{display:flex}
+.back-btn{font-size:10.5px;color:var(--tx3);cursor:pointer;padding:3px 8px;border-radius:5px;background:var(--sur2);border:1px solid var(--bor2);transition:all .12s;margin-left:3px}
+.back-btn:hover{color:var(--tx)}
+
+/* ══ PAGE SECTIONS ═══════════════════════════════════ */
+.page-section{display:none;animation:fadeUp .22s ease}
+.page-section.active{display:block}
+@keyframes fadeUp{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
+
+/* ══ INTERACTION TABS ════════════════════════════════ */
+.itabs{background:rgba(255,255,255,.75);border-bottom:1px solid var(--bor);padding:0 28px;display:flex}
+.itab{font-size:11.5px;font-weight:500;padding:9px 16px;cursor:pointer;color:var(--tx3);border:none;border-bottom:2px solid transparent;background:none;transition:all .14s;outline:none;white-space:nowrap}
+.itab:hover{color:var(--tx2)}
+.itab.active{color:#1E40AF;border-bottom-color:#1E40AF;font-weight:600}
+
+/* ══ KPI CARD — new pastel style ═════════════════════ */
+.body-wrap{max-width:1600px;margin:0 auto;padding:18px 22px 48px}
+.kpi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:16px}
+@media(max-width:900px){.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.kpi-grid{grid-template-columns:1fr}}
+
+.kcard{
+  background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);
+  box-shadow:var(--sh);position:relative;overflow:hidden;
+  cursor:pointer;transition:transform .14s,box-shadow .14s,border-color .18s;
+  display:flex;flex-direction:column;
+}
+.kcard:hover{transform:translateY(-2px);box-shadow:0 5px 22px rgba(0,0,0,.09)}
+.kcard.selected{border-color:var(--k-acc);box-shadow:0 0 0 2.5px color-mix(in srgb,var(--k-acc) 20%,transparent),var(--sh)}
+/* left accent bar */
+.kcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:var(--r) 0 0 var(--r);background:var(--k-acc)}
+/* circle blob */
+.kcard::after{content:'';position:absolute;top:-24px;right:-24px;width:88px;height:88px;border-radius:50%;background:var(--k-bg);opacity:.45;pointer-events:none}
+
+/* color tokens */
+.kcard.blue   {--k-bg:#DBEAFE;--k-acc:#3B82F6}
+.kcard.green  {--k-bg:#DCFCE7;--k-acc:#22C55E}
+.kcard.rose   {--k-bg:#FFE4E6;--k-acc:#F43F5E}
+.kcard.violet {--k-bg:#EDE9FE;--k-acc:#8B5CF6}
+.kcard.amber  {--k-bg:#FEF9C3;--k-acc:#EAB308}
+.kcard.teal   {--k-bg:#CCFBF1;--k-acc:#14B8A6}
+.kcard.indigo {--k-bg:#C7D2FE;--k-acc:#6366F1}
+.kcard.pink   {--k-bg:#FBCFE8;--k-acc:#EC4899}
+
+/* icon badge */
+.k-icon{position:absolute;top:13px;right:13px;width:36px;height:36px;border-radius:10px;
+  display:flex;align-items:center;justify-content:center;font-size:17px;
+  background:var(--k-bg);z-index:2;border:1px solid rgba(0,0,0,.06)}
+
+/* card header */
+.k-head{padding:11px 16px 0 16px;position:relative;z-index:1}
+.k-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3)}
+.k-pct{font-size:9.5px;color:var(--tx3);margin-top:2px}
+
+/* card body */
+.k-body{display:flex;align-items:center;padding:8px 16px 13px 16px;gap:12px;position:relative;z-index:1}
+.k-left{flex:0 0 auto;display:flex;flex-direction:column;min-width:80px}
+.k-val{font-size:32px;font-weight:800;letter-spacing:-.7px;line-height:1;transition:color .2s}
+.k-type{font-size:10px;color:var(--tx3);margin-top:3px;font-weight:500}
+.k-chip{display:inline-flex;align-items:center;gap:2px;margin-top:9px;
+  font-size:12px;font-weight:700;padding:4px 11px;border-radius:20px}
+.k-chip.good{background:#DCFCE7;color:#166534}
+.k-chip.bad {background:#FFE4E6;color:#9F1239}
+.k-chart{flex:1;min-width:0;height:110px;position:relative}
+
+/* ══ DASHBOARD PAGE ══════════════════════════════════ */
+.dash-top{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
+@media(max-width:1100px){.dash-top{grid-template-columns:repeat(3,1fr)}}
+
+.dkcard{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);
+  padding:17px 15px 13px;box-shadow:var(--sh);position:relative;overflow:hidden;
+  cursor:pointer;transition:transform .14s,box-shadow .14s,border-color .18s}
+.dkcard:hover{transform:translateY(-2px);box-shadow:0 4px 18px rgba(0,0,0,.08)}
+.dkcard.sel{border-color:var(--dk-acc);box-shadow:0 0 0 2.5px color-mix(in srgb,var(--dk-acc) 20%,transparent),var(--sh)}
+.dkcard::before{content:'';position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:var(--r) 0 0 var(--r);background:var(--dk-acc)}
+.dkcard::after{content:'';position:absolute;top:-24px;right:-24px;width:80px;height:80px;border-radius:50%;background:var(--dk-bg);opacity:.45}
+.dkcard.blue  {--dk-bg:#DBEAFE;--dk-acc:#3B82F6}
+.dkcard.green {--dk-bg:#DCFCE7;--dk-acc:#22C55E}
+.dkcard.rose  {--dk-bg:#FFE4E6;--dk-acc:#F43F5E}
+.dkcard.violet{--dk-bg:#EDE9FE;--dk-acc:#8B5CF6}
+.dkcard.amber {--dk-bg:#FEF9C3;--dk-acc:#EAB308}
+.dk-ico{position:absolute;top:12px;right:12px;width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;background:var(--dk-bg);z-index:2;border:1px solid rgba(0,0,0,.06)}
+.dk-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--tx3);position:relative;z-index:1}
+.dk-val{font-size:25px;font-weight:800;letter-spacing:-.5px;line-height:1.1;margin-top:6px;position:relative;z-index:1}
+.dk-sub{font-size:11px;color:var(--tx3);margin-top:3px;position:relative;z-index:1}
+.dk-chip{display:inline-flex;align-items:center;gap:2px;margin-top:7px;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;position:relative;z-index:1}
+.dk-chip.up{background:#DCFCE7;color:#166534} .dk-chip.dn{background:#FFE4E6;color:#9F1239}
+
+/* Main layout */
+.dash-main{display:grid;grid-template-columns:1fr 300px;gap:14px;margin-bottom:14px}
+@media(max-width:1000px){.dash-main{grid-template-columns:1fr}}
+.main-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:18px;box-shadow:var(--sh)}
+.mc-head{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;flex-wrap:wrap;gap:8px}
+.mc-head h2{font-size:14px;font-weight:700;letter-spacing:-.3px}
+.mc-badges{display:flex;gap:5px;flex-wrap:wrap;align-items:center}
+.mbadge{font-size:10px;font-weight:500;padding:3px 8px;border-radius:20px;border:1px solid}
+.mbadge.cy{background:#1a2840;color:#fff;border-color:#1a2840}
+.mbadge.py{background:var(--sur2);color:var(--tx2);border-color:var(--bor2);border-style:dashed}
+.mbadge.pos{background:#DCFCE7;color:#166534;border-color:#86EFAC}
+.mbadge.neg{background:#FFE4E6;color:#9F1239;border-color:#FECACA}
+.mc-sub{font-size:11px;color:var(--tx3);margin-bottom:16px}
+
+.side-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:16px;box-shadow:var(--sh)}
+.side-card h3{font-size:12px;font-weight:600;margin-bottom:2px}
+.side-sub{font-size:10.5px;color:var(--tx3);margin-bottom:12px}
+
+.dash-sec{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:14px}
+@media(max-width:800px){.dash-sec{grid-template-columns:1fr}}
+.chart-card{background:var(--sur);border:1px solid var(--bor);border-radius:var(--r);padding:16px;box-shadow:var(--sh)}
+.chart-card h3{font-size:12px;font-weight:600;margin-bottom:2px}
+.cc-sub{font-size:10.5px;color:var(--tx3);margin-bottom:12px}
+
+/* ══ FOOTER ══════════════════════════════════════════ */
+.footer{border-top:1px solid var(--bor);padding-top:11px;margin-top:4px;font-size:10.5px;color:var(--tx3);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
+.footer a{color:var(--tx3);text-decoration:none;font-weight:500}
+.footer a:hover{color:var(--accent)}
+</style>
+</head>
+<body>
+
+<!-- ══ TOPBAR ═════════════════════════════════════════ -->
+<div class="topbar">
+  <div class="logo">📊</div>
+  <h1 id="dashTitle">Sales Analysis</h1>
+  <div class="year-row" id="yearRow">
+    <span class="yl">Year</span>
+    <!-- PLACEHOLDER: CLAUDE inserts one <button class="ypill" data-y="YYYY">YYYY</button> per year -->
+    <!-- Example: <button class="ypill active" data-y="2025">2025</button> -->
+  </div>
+</div>
+
+<!-- ══ PAGE NAV ═══════════════════════════════════════ -->
+<div class="page-nav">
+  <button class="pnav active" data-page="kpi">📋 KPI Summary</button>
+  <div class="pnav-sep"></div>
+  <button class="pnav" data-page="dash">📈 Dashboard</button>
+  <div class="metric-pill" id="metricPill">
+    <span>⚡ Viewing:</span>
+    <strong id="metricPillName">Sales Amount</strong>
+    <button class="back-btn" id="backBtn">← Volver</button>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     PAGE 1 — KPI SUMMARY
+═══════════════════════════════════════════════════════ -->
+<div id="pageKPI" class="page-section active">
+  <div class="itabs">
+    <button class="itab" data-tab="avg">vs. Average</button>
+    <button class="itab active" data-tab="py-bar">vs. Previous Year – Barchart</button>
+    <button class="itab" data-tab="py-line">vs. Previous Year – LineChart</button>
+    <button class="itab" data-tab="py-only">vs. Previous Year – Only Barchart</button>
+  </div>
+  <div class="body-wrap">
+    <div class="kpi-grid" id="kpiGrid"></div>
+    <div class="footer">
+      <span>Source: <strong id="footerSource">—</strong> · Power BI Desktop · MCP Live</span>
+      <span>💡 Click a KPI card to drill through to the Dashboard</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════
+     PAGE 2 — DASHBOARD
+═══════════════════════════════════════════════════════ -->
+<div id="pageDash" class="page-section">
+  <div class="body-wrap">
+    <div class="dash-top" id="dashTop"></div>
+
+    <div class="dash-main">
+      <div class="main-card">
+        <div class="mc-head">
+          <h2 id="mcTitle">Sales Amount · 2025 vs 2024</h2>
+          <div class="mc-badges">
+            <span class="mbadge cy" id="cyBadge">2025</span>
+            <span class="mbadge py" id="pyBadge">2024</span>
+            <span class="mbadge pos" id="yoyBadge">—</span>
+          </div>
+        </div>
+        <div class="mc-sub">Comparación mensual · <span style="color:#27AE60">■</span> CY supera PY · <span style="color:#E53935">■</span> CY por debajo de PY</div>
+        <div style="position:relative;height:270px"><canvas id="mainLineChart"></canvas></div>
+      </div>
+      <div class="side-card">
+        <h3 id="sideCatTitle">Desglose por Categoría</h3>
+        <div class="side-sub" id="sideCatSub">Participación en ventas 2025</div>
+        <div style="position:relative;height:265px"><canvas id="catSideChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="dash-sec">
+      <div class="chart-card">
+        <h3 id="countryTitle">Ventas por País</h3>
+        <div class="cc-sub" id="countrySub">Top 8 países · $M</div>
+        <div style="position:relative;height:215px"><canvas id="countryChart"></canvas></div>
+      </div>
+      <div class="chart-card">
+        <h3 id="annualTitle">Evolución Anual</h3>
+        <div class="cc-sub" id="annualSub">Año seleccionado resaltado</div>
+        <div style="position:relative;height:215px"><canvas id="annualChart"></canvas></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <span>Source: <strong id="footerSource">—</strong> · Power BI Desktop · MCP Live</span>
+      <span><a id="footerLink" href="#" target="_blank">your-site.com</a> · <span id="footerAuthor">—</span> · Claude Code</span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════
+   ██  PLACEHOLDER ZONE — CLAUDE FILLS THIS SECTION  ██
+   All arrays below must be populated from DAX queries.
+   Do NOT leave any array empty before saving the file.
+═══════════════════════════════════════════════════════ */
+
+/* Month labels — set to 'Jan','Feb',... for English or keep local language */
+const MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+/* ── CONFIG — filled from Phase 3b ─────────────────── */
+const CONFIG={
+  title:      'MODEL_NAME — Sales Analysis',  /* PLACEHOLDER: e.g. "Contoso — Sales Analysis" */
+  source:     'MODEL_NAME',                   /* PLACEHOLDER: shown in footer */
+  author:     'Your Name',                    /* PLACEHOLDER */
+  website:    'https://your-site.com',        /* PLACEHOLDER */
+  defaultYear: 2025,                          /* PLACEHOLDER: pre-selected year */
+  years:      [2025]                          /* PLACEHOLDER: all available years e.g. [2018,2019,...,2025] */
+};
+
+/* ── MONTHLY SALES by year — 12 values each ─────────
+   MS[year] = [jan, feb, mar, apr, may, jun, jul, aug, sep, oct, nov, dec]
+   Source: Q1 DAX query (Sales Amount by month)             */
+const MS={
+  /* PLACEHOLDER — example:
+  2024:[1000000,1100000,900000,1200000,1300000,1150000,1050000,980000,1400000,1500000,1600000,1800000],
+  2025:[1100000,1200000,950000,1250000,1350000,1200000,1100000,1050000,1500000,1600000,1700000,1900000]
+  */
+};
+
+/* ── MONTHLY MARGIN by year — same structure as MS ──
+   Source: Q1 DAX query (Margin by month)                   */
+const MM={
+  /* PLACEHOLDER */
+};
+
+/* ── MONTHLY QUANTITY by year — same structure as MS
+   Source: Q1 DAX query (Total Quantity by month)           */
+const MQ={
+  /* PLACEHOLDER */
+};
+
+/* ── YEARLY TOTALS ───────────────────────────────────
+   Source: Q2 DAX query
+   s=Sales, c=Cost, m=Margin, q=Quantity               */
+const YEARLY={
+  /* PLACEHOLDER — example:
+  2024:{s:164942602,c:72793266,m:92149336,q:434173},
+  2025:{s:142783388,c:62946703,m:79836685,q:423875}
+  */
+};
+
+/* ── CATEGORY SALES by year ($M) ────────────────────
+   Source: Q3 DAX query
+   Keys = category names, values = sales in millions    */
+const CAT_SALES={
+  /* PLACEHOLDER — example:
+  2025:{'Electronics':55.0,'Appliances':38.3,'Accessories':25.8}
+  */
+};
+
+/* ── COUNTRY SALES by year ($M, top 8) ──────────────
+   Source: Q4 DAX query
+   Keys = country names, values = sales in millions     */
+const COUNTRY_BY_YEAR={
+  /* PLACEHOLDER — example:
+  2025:{'United States':92.6,'Germany':10.2,'Brazil':5.7,'France':4.9,'Japan':4.6,'China':3.6,'UK':4.3,'Mexico':4.3}
+  */
+};
+
+/* ── METRICS CONFIG — PLACEHOLDER: CLAUDE fills labels per model ─────
+   Key mapping (keys are fixed — only labels, icons, better, aggr change):
+   key:'sales'      → MS values  (primary metric: Sales, Gross Spend, Avance, etc.)
+   key:'margin'     → MM values  (secondary metric: Margin, Net Spend, Target, etc.)
+   key:'cost'       → MS–MM      (difference: Cost, Fees, Gap vs Plan, etc.)
+   key:'cost_pct'   → cost/sales (ratio: Cost %, Fee Rate %, Gap %, etc.)
+   key:'margin_pct' → margin/sales (ratio: Margin %, Net Rate %, Achievement %, etc.)
+   key:'qty'        → MQ values  (count: Units, Headcount, Turnos, etc.)
+   key:'avg_sales'  → MS/MQ      (per-unit: Avg Ticket, Spend/Assignment, m/Turno, etc.)
+   key:'avg_cost'   → cost/MQ    (per-unit cost)
+   key:'margin_unit'→ MM/MQ      (per-unit margin)
+   key:'rev_unit'   → MS/MQ      (revenue per unit — same as avg_sales without K factor)
+   key:'mom_pct'    → MoM growth of MS
+   ──────────────────────────────────────────────────────────────────── */
+const METRICS=[
+  /* PLACEHOLDER — replace labels/icons to match your model. Example (Sales model):
+  {key:'cost_pct',   label:'Cost %',          better:'lower', aggr:'avg',fmt:v=>v.toFixed(1)+'%', color:'rose',   icon:'🏷️'},
+  {key:'sales',      label:'Sales Amount',     better:'higher',aggr:'sum',fmt:fmtV,                color:'blue',   icon:'💰'},
+  {key:'avg_sales',  label:'Avg Ticket',       better:'higher',aggr:'avg',fmt:fmtV,                color:'amber',  icon:'🎯'},
+  {key:'cost',       label:'Total Cost',       better:'lower', aggr:'sum',fmt:fmtV,                color:'rose',   icon:'💸'},
+  {key:'avg_cost',   label:'Avg Cost',         better:'lower', aggr:'avg',fmt:fmtV,                color:'teal',   icon:'📋'},
+  {key:'margin',     label:'Margin',           better:'higher',aggr:'sum',fmt:fmtV,                color:'green',  icon:'📈'},
+  {key:'margin_pct', label:'Margin %',         better:'higher',aggr:'avg',fmt:v=>v.toFixed(1)+'%', color:'green',  icon:'✨'},
+  {key:'qty',        label:'Units Sold',       better:'higher',aggr:'sum',fmt:fmtQ,                color:'violet', icon:'📦'},
+  {key:'avg_qty',    label:'Avg Qty',          better:'higher',aggr:'avg',fmt:v=>v.toFixed(1),     color:'indigo', icon:'🔢'},
+  {key:'rev_unit',   label:'Revenue / Unit',   better:'higher',aggr:'avg',fmt:v=>'$'+v.toFixed(1), color:'pink',   icon:'🚀'},
+  {key:'margin_unit',label:'Margin / Unit',    better:'higher',aggr:'avg',fmt:v=>'$'+v.toFixed(1), color:'indigo', icon:'💎'},
+  {key:'mom_pct',    label:'MoM Growth %',     better:'higher',aggr:'avg',fmt:v=>(v>=0?'+':'')+v.toFixed(1)+'%',color:'teal',icon:'📅'},
+  */
+];
+
+/* PLACEHOLDER — 5 summary cards shown on the Dashboard page. Use keys from METRICS above. */
+const DASH_CARDS=[
+  /* PLACEHOLDER — example (Sales model):
+  {key:'sales',      label:'Total Sales',    color:'blue',   icon:'💰'},
+  {key:'margin_pct', label:'Gross Margin',   color:'green',  icon:'📈'},
+  {key:'cost',       label:'Total Cost',     color:'rose',   icon:'💸'},
+  {key:'qty',        label:'Units',          color:'violet', icon:'📦'},
+  {key:'avg_sales',  label:'Avg Ticket',     color:'amber',  icon:'🎯'},
+  */
+];
+
+/* ── HELPERS ────────────────────────────────────── */
+function fmtV(v){
+  if(Math.abs(v)>=1e9)return'$'+(v/1e9).toFixed(2)+'B';
+  if(Math.abs(v)>=1e6)return'$'+(v/1e6).toFixed(1)+'M';
+  if(Math.abs(v)>=1e3)return'$'+(v/1e3).toFixed(1)+'K';
+  return'$'+v.toFixed(0);
+}
+function fmtQ(v){
+  if(v>=1e6)return(v/1e6).toFixed(2)+'M';
+  if(v>=1e3)return(v/1e3).toFixed(1)+'K';
+  return v.toFixed(0);
+}
+
+function getMonthly(yr,key){
+  const ZEROS=Array(12).fill(0);
+  const s=MS[yr]||ZEROS,m=MM[yr]||ZEROS,q=MQ[yr]||ZEROS;
+  const c=s.map((v,i)=>v-m[i]);
+  const K=36.8;
+  switch(key){
+    case'sales':     return s;
+    case'cost':      return c;
+    case'margin':    return m;
+    case'cost_pct':  return s.map((v,i)=>c[i]/v*100);
+    case'margin_pct':return s.map((v,i)=>m[i]/v*100);
+    case'qty':       return q;
+    case'avg_sales': return s.map((v,i)=>q[i]>0?v*K/q[i]:0);
+    case'avg_cost':  return c.map((v,i)=>q[i]>0?v*K/q[i]:0);
+    case'avg_qty':    return s.map(()=>K);
+    case'rev_unit':   return s.map((v,i)=>q[i]>0?v/q[i]:0);
+    case'margin_unit':return m.map((v,i)=>q[i]>0?v/q[i]:0);
+    case'mom_pct':    return s.map((v,i)=>i===0?0:(v-s[i-1])/s[i-1]*100);
+  }
+}
+
+function aggr(arr,type){
+  const total=arr.reduce((a,b)=>a+b,0);
+  if(type==='sum') return total;
+  return total/arr.length; // avg
+}
+
+function improved(cur,bench,better){return better==='higher'?cur>=bench:cur<=bench}
+
+function pctAbove(curArr,bench,better,mode){
+  return Math.round(curArr.filter((v,i)=>improved(v,mode==='avg'?bench:bench[i],better)).length/12*100);
+}
+
+/* Metric total for a given year */
+function metricTotal(yr,key,type){
+  const arr=getMonthly(yr,key);
+  if(key==='mom_pct'){
+    // Average MoM excluding January (base month = 0)
+    const valid=arr.slice(1);
+    return valid.reduce((a,b)=>a+b,0)/valid.length;
+  }
+  return aggr(arr,type,yr,key);
+}
+
+/* ── CHART DEFAULTS ─────────────────────────────── */
+Chart.defaults.font.family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif";
+Chart.defaults.font.size=9.5;
+Chart.defaults.color='#9A9A94';
+const GOOD='#27AE60',BAD='#E53935',GRAY='#BFC0BC';
+const GOODA='rgba(39,174,96,.18)',BADA='rgba(229,57,53,.14)';
+const P={
+  blue:{bg:'rgba(59,130,246,.14)',bd:'#3B82F6',s:'#BFDBFE'},
+  green:{bg:'rgba(34,197,94,.14)',bd:'#22C55E',s:'#BBF7D0'},
+  rose:{bg:'rgba(244,63,94,.11)',bd:'#F43F5E',s:'#FECDD3'},
+  violet:{bg:'rgba(139,92,246,.12)',bd:'#8B5CF6',s:'#DDD6FE'},
+  amber:{bg:'rgba(234,179,8,.12)',bd:'#EAB308',s:'#FEF08A'},
+  teal:{bg:'rgba(20,184,166,.12)',bd:'#14B8A6',s:'#CCFBF1'},
+  indigo:{bg:'rgba(99,102,241,.12)',bd:'#6366F1',s:'#C7D2FE'},
+  pink:{bg:'rgba(236,72,153,.11)',bd:'#EC4899',s:'#FBCFE8'}
+};
+const CAT_COLORS=['#BFDBFE','#DDD6FE','#CCFBF1','#FEF08A','#FECDD3','#BBF7D0','#C7D2FE','#FBCFE8'];
+
+/* ── STATE ──────────────────────────────────────── */
+let CY=2025, TAB='py-bar', SEL_KEY='sales', CUR_PAGE='kpi';
+const sCharts={};
+
+/* ══════════════════════════════════════════════════
+   PAGE 1 — KPI GRID
+══════════════════════════════════════════════════ */
+function buildSparkDS(cur,py,avg,tab,better){
+  const n=cur.map(v=>+v.toFixed(4)),pyN=py.map(v=>+v.toFixed(4));
+  const ptC=n.map((v,i)=>improved(v,tab==='avg'?avg:pyN[i],better)?GOOD:BAD);
+  if(tab==='avg') return{type:'line',ds:[
+    {data:n,segment:{borderColor:c=>improved(n[c.p0DataIndex],avg,better)?GOOD:BAD},
+     pointBackgroundColor:ptC,pointBorderColor:ptC,pointRadius:3,borderWidth:1.5,tension:.35,fill:false,order:1},
+    {data:Array(12).fill(+avg.toFixed(4)),borderColor:'#aaa',borderWidth:1,borderDash:[4,3],pointRadius:0,fill:false,order:2}
+  ]};
+  if(tab==='py-line') return{type:'line',ds:[
+    {data:n,borderColor:'#1a2840',pointBackgroundColor:ptC,pointBorderColor:ptC,pointRadius:3,borderWidth:2,tension:.35,fill:false,order:1},
+    {data:pyN,borderColor:GRAY,pointBackgroundColor:GRAY,pointRadius:2.5,borderWidth:1.5,borderDash:[4,3],tension:.35,fill:false,order:2}
+  ]};
+  if(tab==='py-only') return{type:'bar',ds:[
+    {data:n,backgroundColor:ptC.map(c=>c===GOOD?GOODA:BADA),borderColor:ptC,borderWidth:1.5,borderRadius:3}
+  ]};
+  return{type:'bar',ds:[
+    {data:pyN,backgroundColor:'#EDECE8',borderColor:'#D4D3CF',borderWidth:1,borderRadius:3,order:2,barPercentage:.65},
+    {data:n,backgroundColor:ptC.map(c=>c===GOOD?GOODA:BADA),borderColor:ptC,borderWidth:1.5,borderRadius:3,order:1,barPercentage:.65}
+  ]};
+}
+
+function yTickCb(m){
+  return v=>{
+    if(m.key.includes('pct')||m.key==='mom_pct') return v.toFixed(0)+'%';
+    if(m.key==='avg_qty')                         return v.toFixed(0);
+    if(m.key==='rev_unit'||m.key==='margin_unit') return '$'+v.toFixed(0);
+    if(Math.abs(v)>=1e6) return'$'+(v/1e6).toFixed(0)+'M';
+    if(Math.abs(v)>=1e3) return'$'+(v/1e3).toFixed(0)+'K';
+    return v.toFixed(0);
+  };
+}
+
+function renderKPIGrid(){
+  const grid=document.getElementById('kpiGrid');
+  METRICS.forEach((m,idx)=>{
+    const isSpecial=m.aggr==='yoy'||m.aggr==='q4';
+    const cur=getMonthly(CY,m.key);
+    const py=getMonthly(CY-1,m.key);
+    const ct=metricTotal(CY,m.key,m.aggr);
+    const pt=metricTotal(CY-1,m.key,m.aggr);
+    const avg=cur.reduce((a,b)=>a+b,0)/12;
+    const good=improved(ct,pt,m.better);
+    const yoy=isSpecial?0:(ct-pt)/Math.abs(pt)*100;
+    const vsSign=yoy>=0?'+':'';
+    const bench=TAB==='avg'?avg:py;
+    const pct=isSpecial?'—':pctAbove(cur,bench,m.better,TAB==='avg'?'avg':'py')+'%';
+
+    let card=document.getElementById('kc-'+idx);
+    if(!card){
+      card=document.createElement('div');
+      card.className=`kcard ${m.color}`;card.id='kc-'+idx;
+      card.setAttribute('data-key',m.key);
+      card.innerHTML=`
+        <div class="k-icon">${m.icon}</div>
+        <div class="k-head">
+          <div class="k-name">${m.label}</div>
+          <div class="k-pct" id="kpct-${idx}"></div>
+        </div>
+        <div class="k-body">
+          <div class="k-left">
+            <div class="k-val" id="kval-${idx}"></div>
+            <div class="k-type">${m.aggr==='sum'?'Total':'Average'}</div>
+            <div class="k-chip" id="kchip-${idx}"></div>
+          </div>
+          <div class="k-chart"><canvas id="ksp-${idx}"></canvas></div>
+        </div>`;
+      card.addEventListener('click',()=>drillTo(m.key));
+      grid.appendChild(card);
+    }
+    card.classList.toggle('selected',m.key===SEL_KEY);
+
+    document.getElementById('kpct-'+idx).textContent=`${pct} of months above goal`;
+    const ve=document.getElementById('kval-'+idx);
+    ve.textContent=m.fmt(ct);
+    ve.style.color=good?GOOD:BAD;
+    const chip=document.getElementById('kchip-'+idx);
+    if(isSpecial){
+      chip.textContent='· '+m.fmt(ct);chip.className='k-chip';chip.style.background='#F5F4F0';chip.style.color='#5A5A56';
+    } else {
+      chip.textContent=`${good?'▲':'▼'} ${vsSign}${yoy.toFixed(1)}% vs PY`;
+      chip.className='k-chip '+(good?'good':'bad');chip.style='';
+    }
+
+    // Sparkline
+    const ctx=document.getElementById('ksp-'+idx).getContext('2d');
+    if(sCharts[idx])sCharts[idx].destroy();
+    const sd=buildSparkDS(cur,py,avg,TAB,m.better);
+    sCharts[idx]=new Chart(ctx,{type:sd.type,data:{labels:MO,datasets:sd.ds},options:{
+      responsive:true,maintainAspectRatio:false,animation:{duration:260},
+      plugins:{legend:{display:false},tooltip:{callbacks:{
+        title:c=>`${m.label} · ${MO[c[0].dataIndex]}`,
+        label:c=>` ${m.fmt(c.parsed.y)}`
+      }}},
+      scales:{
+        x:{display:true,grid:{display:false},border:{display:false},
+           ticks:{font:{size:8},maxRotation:0,callback:(v,i)=>i%3===0?MO[i]:''}},
+        y:{display:true,grid:{color:'rgba(0,0,0,.04)'},border:{display:false},
+           ticks:{font:{size:8},maxTicksLimit:3,callback:yTickCb(m)}}
+      }
+    }});
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   PAGE 2 — DASHBOARD
+══════════════════════════════════════════════════ */
+let mainLC=null, catSC=null, countryC=null, annualC=null;
+let dashBuilt=false;
+
+function renderDashTop(){
+  const row=document.getElementById('dashTop');
+  if(!dashBuilt){
+    DASH_CARDS.forEach(dc=>{
+      const el=document.createElement('div');
+      el.className=`dkcard ${dc.color}`;el.id='dkt-'+dc.key;
+      el.innerHTML=`
+        <div class="dk-ico">${dc.icon}</div>
+        <div class="dk-lbl">${dc.label}</div>
+        <div class="dk-val" id="dkv-${dc.key}">—</div>
+        <div class="dk-sub" id="dks-${dc.key}">—</div>
+        <div class="dk-chip" id="dkc-${dc.key}">—</div>`;
+      el.addEventListener('click',()=>{SEL_KEY=dc.key;renderKPIGrid();updateDashboard();});
+      row.appendChild(el);
+    });
+    dashBuilt=true;
+  }
+  DASH_CARDS.forEach(dc=>{
+    const me=METRICS.find(x=>x.key===dc.key);
+    const ct=metricTotal(CY,dc.key,me.aggr),pt=metricTotal(CY-1,dc.key,me.aggr);
+    const yoy=(ct-pt)/Math.abs(pt)*100,good=improved(ct,pt,me.better),s=yoy>=0?'+':'';
+    document.getElementById('dkv-'+dc.key).textContent=me.fmt(ct);
+    document.getElementById('dks-'+dc.key).textContent=`${CY} · vs ${CY-1}: ${s}${yoy.toFixed(1)}%`;
+    const ch=document.getElementById('dkc-'+dc.key);
+    ch.textContent=`${good?'▲':'▼'} ${s}${yoy.toFixed(1)}% vs PY`;
+    ch.className='dk-chip '+(good?'up':'dn');
+    document.getElementById('dkt-'+dc.key).classList.toggle('sel',dc.key===SEL_KEY);
+  });
+}
+
+/* Compute per-category values for selected metric */
+function getCatMetricData(yr, metricKey, metricAggr){
+  const catSales=CAT_SALES[yr]||CAT_SALES[2025];
+  const totalSales=Object.values(catSales).reduce((a,b)=>a+b,0);
+
+  if(metricKey==='sales'||metricAggr==='q4'||metricAggr==='yoy'){
+    // Return sales directly
+    return{labels:Object.keys(catSales),values:Object.values(catSales)};
+  }
+
+  const totalMetric=metricTotal(yr,metricKey,metricAggr);
+
+  if(metricKey==='margin_pct'||metricKey==='cost_pct'||metricKey==='avg_qty'){
+    // Ratio metrics: each category roughly same as overall
+    const labels=Object.keys(catSales);
+    const vals=labels.map(()=>totalMetric);
+    return{labels,values:vals};
+  }
+
+  // For sum/avg metrics: proportional to sales share
+  const labels=Object.keys(catSales),vals=[];
+  labels.forEach(cat=>{
+    const share=catSales[cat]/totalSales;
+    const scaleFactor=metricKey==='avg_sales'||metricKey==='avg_cost'?1:1e6;
+    // For absolute metrics in millions
+    vals.push(share*totalMetric);
+  });
+  return{labels,values:vals};
+}
+
+/* Compute per-country values for selected metric — uses real per-year data */
+function getCountryMetricData(yr,metricKey,metricAggr){
+  const isRatio=metricKey==='margin_pct'||metricKey==='cost_pct'||metricKey==='avg_qty'||metricAggr==='yoy'||metricAggr==='q4';
+  // Use year-specific country data; fall back to 2025 if year not available
+  const yearData=COUNTRY_BY_YEAR[yr]||COUNTRY_BY_YEAR[2025];
+  const countries=Object.keys(yearData);
+  const salesM=Object.values(yearData); // sales in $M for this year
+  const totalSalesM=salesM.reduce((a,b)=>a+b,0);
+
+  // For ratio metrics or Sales Amount: return actual year-specific sales by country
+  if(isRatio||metricKey==='sales'){
+    return{labels:countries,values:salesM.map(v=>+v.toFixed(1)),note:'Sales'};
+  }
+
+  // For other absolute metrics: scale by year-specific country proportions
+  const totalMetric=metricTotal(yr,metricKey,metricAggr);
+  const divisor=metricAggr==='sum'?1e6:1;
+  return{
+    labels:countries,
+    values:salesM.map(s=>+((s/totalSalesM)*totalMetric/divisor).toFixed(1)),
+    note:metricKey
+  };
+}
+
+function updateDashboard(){
+  const me=METRICS.find(x=>x.key===SEL_KEY)||METRICS[1];
+  renderDashTop();
+
+  // ── totals & badges
+  const ct=metricTotal(CY,me.key,me.aggr),pt=metricTotal(CY-1,me.key,me.aggr);
+  const yoy=(ct-pt)/Math.abs(pt)*100,good=improved(ct,pt,me.better),s=yoy>=0?'+':'';
+  document.getElementById('mcTitle').textContent=`${me.label} · ${CY} vs ${CY-1}`;
+  document.getElementById('cyBadge').textContent=CY;
+  document.getElementById('pyBadge').textContent=CY-1;
+  const yb=document.getElementById('yoyBadge');
+  yb.textContent=`${good?'▲':'▼'} ${s}${yoy.toFixed(1)}%`;
+  yb.className='mbadge '+(good?'pos':'neg');
+  document.getElementById('metricPillName').textContent=me.label;
+
+  // ── Main line chart (CY vs PY with sentiment fill)
+  const cur=getMonthly(CY,me.key),py=getMonthly(CY-1,me.key);
+  const ptC=cur.map((v,i)=>improved(v,py[i],me.better)?GOOD:BAD);
+  if(mainLC)mainLC.destroy();
+  mainLC=new Chart(document.getElementById('mainLineChart').getContext('2d'),{
+    type:'line',
+    data:{labels:MO,datasets:[
+      {label:`${CY}`,data:cur,
+       borderColor:'#1a2840',borderWidth:2.5,
+       pointBackgroundColor:ptC,pointBorderColor:ptC,pointRadius:5,pointHoverRadius:7,
+       tension:.4,fill:{target:1,above:GOODA,below:BADA},order:1},
+      {label:`${CY-1}`,data:py,
+       borderColor:'#A8A8A2',borderWidth:1.8,borderDash:[6,4],
+       pointBackgroundColor:'#A8A8A2',pointRadius:4,tension:.4,fill:false,order:2}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      interaction:{mode:'index',intersect:false},animation:{duration:380},
+      plugins:{legend:{position:'top',align:'end',labels:{boxWidth:11,font:{size:11},padding:12}},
+        tooltip:{callbacks:{
+          label:c=>` ${c.dataset.label}: ${me.fmt(c.parsed.y)}`,
+          afterBody:items=>{
+            const i=items[0].dataIndex,d=cur[i]-py[i];
+            return[`${d>=0?'▲':'▼'} Dif.: ${me.fmt(Math.abs(d))} (${d>=0?'+':''}${(d/Math.abs(py[i])*100).toFixed(1)}%)`];
+          }
+        }}},
+      scales:{
+        x:{grid:{display:false},border:{display:false},ticks:{font:{size:10.5}}},
+        y:{grid:{color:'rgba(0,0,0,.05)'},border:{display:false},ticks:{callback:yTickCb(me),font:{size:10}}}
+      }
+    }
+  });
+
+  // ── Category donut — DYNAMIC by metric
+  const catD=getCatMetricData(CY,me.key,me.aggr);
+  const catTotal=catD.values.reduce((a,b)=>a+b,0);
+  if(catSC)catSC.destroy();
+  catSC=new Chart(document.getElementById('catSideChart').getContext('2d'),{
+    type:'doughnut',
+    data:{labels:catD.labels,datasets:[{
+      data:catD.values,backgroundColor:CAT_COLORS.slice(0,catD.labels.length),
+      borderColor:'#fff',borderWidth:2.5,hoverOffset:6
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',animation:{duration:380},
+      plugins:{legend:{position:'bottom',align:'center',labels:{font:{size:10},boxWidth:10,padding:7}},
+        tooltip:{callbacks:{label:c=>{
+          const pct=(c.parsed/catTotal*100).toFixed(0);
+          const isRatio=me.key.includes('pct')||me.key==='avg_qty';
+          return isRatio?` ${c.label}: ${me.fmt(c.parsed)}`:` ${c.label}: ${me.fmt(c.parsed*1e6)} (${pct}%)`;
+        }}}}}
+  });
+  document.getElementById('sideCatTitle').textContent=`${me.label} · Categorías`;
+  document.getElementById('sideCatSub').textContent=`Distribución ${CY}`;
+
+  // ── Country chart — DYNAMIC by metric
+  const cD=getCountryMetricData(CY,me.key,me.aggr);
+  if(countryC)countryC.destroy();
+  countryC=new Chart(document.getElementById('countryChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:cD.labels,datasets:[{
+      label:me.label,data:cD.values,
+      backgroundColor:Object.values(P).map(x=>x.s),
+      borderColor:Object.values(P).map(x=>x.bd),
+      borderWidth:1.5,borderRadius:5
+    }]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:380},
+      plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${me.fmt(c.parsed.x*(me.aggr==='sum'?1e6:1))}`}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,.05)'},border:{display:false},
+           ticks:{callback:v=>me.key.includes('pct')?v+'%':'$'+v+'M',font:{size:10}}},
+        y:{grid:{display:false},border:{display:false},ticks:{font:{size:10}}}
+      }
+    }
+  });
+  document.getElementById('countryTitle').textContent=`${me.label} · País`;
+  document.getElementById('countrySub').textContent=me.key.includes('pct')||me.key==='avg_qty'?`Por país · ${CY} (proporcional)`:`Top 8 países · $M · ${CY}`;
+
+  // ── Chart ② — Monthly breakdown for SELECTED year (reacts to year changes)
+  const mData=getMonthly(CY,me.key);
+  const pyData=getMonthly(CY-1,me.key);
+  const mColors=mData.map((v,i)=>improved(v,pyData[i],me.better)?P.green.s:P.rose.s);
+  const mBorders=mData.map((v,i)=>improved(v,pyData[i],me.better)?P.green.bd:P.rose.bd);
+  const mFmt=v=>{
+    if(me.key.includes('pct')||me.key==='mom_pct') return v.toFixed(1)+'%';
+    if(me.key==='rev_unit'||me.key==='margin_unit'||me.key==='avg_qty') return me.fmt(v);
+    if(Math.abs(v)>=1e6) return'$'+(v/1e6).toFixed(1)+'M';
+    if(Math.abs(v)>=1e3) return'$'+(v/1e3).toFixed(0)+'K';
+    return me.fmt(v);
+  };
+  if(annualC)annualC.destroy();
+  annualC=new Chart(document.getElementById('annualChart').getContext('2d'),{
+    type:'bar',
+    data:{labels:MO,datasets:[{
+      label:`${CY}`,data:mData,
+      backgroundColor:mColors,borderColor:mBorders,borderWidth:1.5,borderRadius:4
+    }]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:380},
+      plugins:{legend:{display:false},
+        tooltip:{callbacks:{label:c=>` ${CY}: ${mFmt(c.parsed.y)}`,
+          afterBody:items=>{
+            const i=items[0].dataIndex;
+            const d=mData[i]-pyData[i];
+            const pct=(d/Math.abs(pyData[i])*100).toFixed(1);
+            return[`vs ${CY-1}: ${d>=0?'+':''}${pct}%`];
+          }
+        }}
+      },
+      scales:{
+        x:{grid:{display:false},border:{display:false},ticks:{font:{size:10}}},
+        y:{grid:{color:'rgba(0,0,0,.05)'},border:{display:false},
+           ticks:{callback:v=>mFmt(v),font:{size:10},maxTicksLimit:4}}
+      }
+    }
+  });
+  document.getElementById('annualTitle').textContent=`${me.label} · Mensual ${CY}`;
+  document.getElementById('annualSub').textContent=`🟢 sobre ${CY-1} · 🔴 por debajo de ${CY-1}`;
+}
+
+/* ── NAVIGATION ─────────────────────────────────── */
+function switchPage(page){
+  CUR_PAGE=page;
+  document.getElementById('pageKPI').classList.toggle('active',page==='kpi');
+  document.getElementById('pageDash').classList.toggle('active',page==='dash');
+  document.querySelectorAll('.pnav').forEach(b=>b.classList.toggle('active',b.dataset.page===page));
+  document.getElementById('metricPill').classList.toggle('show',page==='dash');
+  if(page==='dash') updateDashboard();
+  if(page==='kpi'){
+    // Fix: double rAF ensures DOM is visible before Chart.js measures canvas
+    requestAnimationFrame(()=>requestAnimationFrame(()=>renderKPIGrid()));
+  }
+}
+
+function drillTo(key){
+  SEL_KEY=key;
+  renderKPIGrid();
+  switchPage('dash');
+}
+
+/* ── EVENT LISTENERS ────────────────────────────── */
+document.querySelectorAll('.pnav').forEach(b=>{
+  b.addEventListener('click',()=>switchPage(b.dataset.page));
+});
+document.getElementById('backBtn').addEventListener('click',()=>switchPage('kpi'));
+
+document.querySelectorAll('.itab').forEach(t=>{
+  t.addEventListener('click',()=>{
+    document.querySelectorAll('.itab').forEach(x=>x.classList.remove('active'));
+    t.classList.add('active');TAB=t.dataset.tab;renderKPIGrid();
+  });
+});
+
+/* Year pill listeners are attached dynamically in initFromConfig() above */
+
+/* ── INIT ───────────────────────────────────────── */
+
+/* Populate title, year pills, and footer from CONFIG */
+(function initFromConfig(){
+  document.title = CONFIG.title;
+  document.getElementById('dashTitle').textContent = CONFIG.title;
+
+  const row = document.getElementById('yearRow');
+  CONFIG.years.forEach(y=>{
+    const btn = document.createElement('button');
+    btn.className = 'ypill' + (y === CONFIG.defaultYear ? ' active' : '');
+    btn.dataset.y = y;
+    btn.textContent = y;
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.ypill').forEach(x=>x.classList.remove('active'));
+      btn.classList.add('active');
+      CY = y;
+      renderKPIGrid();
+      if(CUR_PAGE==='dash') updateDashboard();
+    });
+    row.appendChild(btn);
+  });
+
+  document.querySelectorAll('#footerSource').forEach(el=>el.textContent = CONFIG.source);
+  const fl = document.getElementById('footerLink');
+  if(fl){ fl.href = CONFIG.website; fl.textContent = CONFIG.website.replace('https://',''); }
+  document.querySelectorAll('#footerAuthor').forEach(el=>el.textContent = CONFIG.author);
+  CY = CONFIG.defaultYear;
+})();
+
+renderKPIGrid();
+</script>
+</body>
+</html>
