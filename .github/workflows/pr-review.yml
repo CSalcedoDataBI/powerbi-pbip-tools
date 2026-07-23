@@ -1,0 +1,37 @@
+# Review automática de PRs con @claude (motor PRINCIPAL — suscripción Max)
+# Copiar a:  .github/workflows/pr-review.yml
+# Requiere el secret del repo:  CLAUDE_CODE_OAUTH_TOKEN
+#   (generar una vez con:  claude setup-token  — usa tu cupo Max, se reinicia cada mes)
+# Guía completa:  docs/ci-cd/free-pr-review.md
+# Fallback gratis:  docs/ci-cd/pr-review.workflow.yml  (NVIDIA NIM)
+name: PR Review (@claude)
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  claude-review:
+    # No revisa borradores (ahorra cupo Max)
+    if: ${{ github.event.pull_request.draft == false }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            Revisa este pull request como un senior engineer. Enfócate en:
+            - Bugs y errores de lógica
+            - Seguridad (secrets expuestos, inyección, validación de entrada)
+            - Buenas prácticas y mantenibilidad
+            - Cobertura de tests faltante
+            Responde en español, con feedback accionable y concreto. Sé breve;
+            si el PR está bien, dilo en una línea en vez de inventar problemas.
