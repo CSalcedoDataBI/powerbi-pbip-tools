@@ -197,6 +197,7 @@ MIT License - see [LICENSE](LICENSE) for details.
 - **Author:** [Cristobal Salcedo](https://csalcedodatabi.com)
 - **Repository:** [github.com/CSalcedoDataBI/powerbi-pbip-tools](https://github.com/CSalcedoDataBI/powerbi-pbip-tools)
 - **Issues:** [Report a bug or request a feature](https://github.com/CSalcedoDataBI/powerbi-pbip-tools/issues)
+- **[PBIP articles & guides](https://csalcedodatabi.com/blog/tag/pbip/)** — deep-dives on version-control workflows, batch editing, and semantic model automation for Power BI projects
 
 ---
 
