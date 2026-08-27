@@ -10,25 +10,30 @@ on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
 
-permissions:
-  pull-requests: write
-  contents: read
-  # claude-code-action pide un token OIDC a GitHub para autenticarse; sin este
-  # permiso falla con "Could not fetch an OIDC token" antes de leer el diff.
-  id-token: write
-
 # Un push nuevo a la misma PR cancela la review anterior: solo la ultima sirve.
+# github.ref vale refs/pull/<n>/merge, asi que agrupa por PR.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
   claude-review:
-    # No revisa borradores (ahorra cupo Max)
-    if: ${{ github.event.pull_request.draft == false }}
+    # No revisa borradores (ahorra cupo Max), y no corre en PRs de forks: GitHub
+    # no expone secrets a un fork, asi que el token llegaria vacio y el check
+    # saldria rojo en la PR de quien contribuye, sin decir nada del codigo.
+    if: >-
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     # El default de GitHub son 360 min: un job colgado se come el 12% de la cuota mensual.
-    timeout-minutes: 10
+    timeout-minutes: 15
+    # A nivel de job, no de workflow: si manana se anade otro job, no hereda el OIDC.
+    permissions:
+      pull-requests: write
+      contents: read
+      # claude-code-action pide un token OIDC a GitHub para autenticarse; sin este
+      # permiso falla con "Could not fetch an OIDC token" antes de leer el diff.
+      id-token: write
     steps:
       - uses: actions/checkout@v4
         with:
