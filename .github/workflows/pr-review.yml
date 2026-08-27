@@ -13,12 +13,22 @@ on:
 permissions:
   pull-requests: write
   contents: read
+  # claude-code-action pide un token OIDC a GitHub para autenticarse; sin este
+  # permiso falla con "Could not fetch an OIDC token" antes de leer el diff.
+  id-token: write
+
+# Un push nuevo a la misma PR cancela la review anterior: solo la ultima sirve.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   claude-review:
     # No revisa borradores (ahorra cupo Max)
     if: ${{ github.event.pull_request.draft == false }}
     runs-on: ubuntu-latest
+    # El default de GitHub son 360 min: un job colgado se come el 12% de la cuota mensual.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:
