@@ -1,35 +1,63 @@
+<#
+.SYNOPSIS
+  Batch-recolor the SVG icons of a Power BI PBIP project.
+
+.DESCRIPTION
+  Rewrites hex colors in StaticResources/RegisteredResources across every
+  .Report folder. Replacement is token-wise: each color token in the file is
+  matched whole and compared by canonical value, so a 6-digit color can never
+  eat the first six digits of an 8-digit one.
+
+.PARAMETER PbipDir
+  Root of the PBIP project.
+
+.PARAMETER To
+  Target color. Any of #RGB, #RGBA, #RRGGBB, #RRGGBBAA.
+
+.PARAMETER From
+  Source colors. Omit to recolor every color found.
+
+.PARAMETER Exclude
+  Colors to leave alone.
+
+.PARAMETER Backup
+  Copy the originals before writing. Backups go OUTSIDE the PBIP project.
+
+.PARAMETER BackupRoot
+  Where -Backup writes. Defaults to the system temp directory, deliberately not
+  inside the project: a backup under RegisteredResources gets committed by
+  accident and would become an input to a future recursive scan.
+
+.PARAMETER WhatIf
+  Dry run: list what would change and write nothing.
+
+.EXAMPLE
+  .\recolor.ps1 -PbipDir ".\MyProject" -To "#DC143C" -WhatIf
+  .\recolor.ps1 -PbipDir ".\MyProject" -From "#0078D4" -To "#DC143C" -Backup
+#>
 param (
     [Parameter(Mandatory)][string]$PbipDir,
     [Parameter(Mandatory)][string]$To,
     [string[]]$From,
     [string[]]$Exclude,
     [switch]$Backup,
+    [string]$BackupRoot,
     [switch]$WhatIf
 )
 
-# --- Validate target color format ---
-if ($To -notmatch '^#[0-9A-Fa-f]{6}$') {
-    Write-Error "Invalid color format for -To: '$To'. Expected 6-digit hex, e.g. '#DC143C'."
+. (Join-Path $PSScriptRoot 'ColorTokens.ps1')
+
+# --- Validate color arguments ---
+if (-not (Test-HexColor -Value $To)) {
+    Write-Error "Invalid color format for -To: '$To'. Expected hex, e.g. '#DC143C'."
     exit 1
 }
-
-# --- Validate source colors format (if provided) ---
-if ($From) {
-    foreach ($c in $From) {
-        if ($c -notmatch '^#[0-9A-Fa-f]{6}$') {
-            Write-Error "Invalid color format in -From: '$c'. Expected 6-digit hex, e.g. '#0078D4'."
-            exit 1
-        }
-    }
-}
-
-# --- Validate excluded colors format (if provided) ---
-# Same strict check as -To/-From: an -Exclude that silently fails to match is a
-# color the user believed was protected and was not.
-if ($Exclude) {
-    foreach ($c in $Exclude) {
-        if ($c -notmatch '^#[0-9A-Fa-f]{6}$') {
-            Write-Error "Invalid color format in -Exclude: '$c'. Expected 6-digit hex, e.g. '#FFFFFF'."
+foreach ($pair in @(@('From', $From), @('Exclude', $Exclude))) {
+    foreach ($c in $pair[1]) {
+        if (-not (Test-HexColor -Value $c)) {
+            # -Exclude is validated too: one that silently fails to match is a
+            # color the user believed was protected and was not.
+            Write-Error "Invalid color format in -$($pair[0]): '$c'. Expected hex, e.g. '#0078D4'."
             exit 1
         }
     }
@@ -39,13 +67,16 @@ if ($Exclude) {
 $reportDirs = Get-ChildItem $PbipDir -Filter "*.Report" -Directory
 if (-not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
 
-$toUpper = $To.ToUpper()
+if (-not $BackupRoot) { $BackupRoot = [System.IO.Path]::GetTempPath() }
+
+$toCanonical  = Get-CanonicalHex -Token $To
 $totalChanged = 0
 $totalFiles = 0
 $processedReports = 0
+$unsupportedSeen = @{}
 
 foreach ($reportDir in $reportDirs) {
-    $svgDir = Join-Path $reportDir.FullName "StaticResources\RegisteredResources"
+    $svgDir = Join-PbipPath -ReportDir $reportDir.FullName
     if (-not (Test-Path $svgDir)) {
         Write-Warning "RegisteredResources not found in: $($reportDir.FullName) - skipping."
         continue
@@ -55,35 +86,37 @@ foreach ($reportDir in $reportDirs) {
     $files = Get-ChildItem $svgDir -Filter "*.svg"
     $totalFiles += $files.Count
 
-    # --- Build set of colors to exclude ---
+    # --- Build the set of colors to leave alone ---
     $excludeSet = @{}
-    if ($Exclude) { foreach ($e in $Exclude) { $excludeSet[$e.ToUpper()] = $true } }
-    $excludeSet[$toUpper] = $true   # never replace the target color itself
+    foreach ($e in $Exclude) { $excludeSet[(Get-CanonicalHex -Token $e)] = $true }
+    $excludeSet[$toCanonical] = $true   # never replace the target color itself
 
-    # --- Determine source colors ---
-    $hexRegex = [regex]::new('#[0-9A-Fa-f]{6}')
+    # --- Determine source colors (canonical, so #FFF and #FFFFFF are one color) ---
     if ($From -and $From.Count -gt 0) {
-        $sourceColors = $From | ForEach-Object { $_.ToUpper() } | Where-Object { -not $excludeSet.ContainsKey($_) }
+        $sourceSet = @{}
+        foreach ($c in $From) {
+            $canonical = Get-CanonicalHex -Token $c
+            if (-not $excludeSet.ContainsKey($canonical)) { $sourceSet[$canonical] = $true }
+        }
     } else {
-        $detected = @{}
+        $sourceSet = @{}
         foreach ($f in $files) {
             $text = [System.IO.File]::ReadAllText($f.FullName)
-            foreach ($m in $hexRegex.Matches($text)) {
-                $c = $m.Value.ToUpper()
-                if (-not $excludeSet.ContainsKey($c)) { $detected[$c] = $true }
+            foreach ($m in [regex]::Matches($text, $script:HexTokenPattern)) {
+                $canonical = Get-CanonicalHex -Token $m.Value
+                if (-not $excludeSet.ContainsKey($canonical)) { $sourceSet[$canonical] = $true }
             }
         }
-        $sourceColors = $detected.Keys
-        if ($sourceColors.Count -eq 0) {
+        if ($sourceSet.Count -eq 0) {
             Write-Host "[$($reportDir.Name)] No colors to replace."
             continue
         }
-        Write-Host "[$($reportDir.Name)] Auto-detected: $($sourceColors -join ', ')"
+        Write-Host "[$($reportDir.Name)] Auto-detected: $(($sourceSet.Keys | Sort-Object) -join ', ')"
     }
 
     # --- Optional backup ---
     if ($Backup -and -not $WhatIf) {
-        $backupDir = Join-Path $svgDir "_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        $backupDir = Join-Path $BackupRoot "pbip-recolor-backup_$($reportDir.Name)_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
         # Fatal on purpose. This script rewrites the user's files in place, and
         # New-Item / Copy-Item only raise non-terminating errors by default: a
         # backup that quietly failed would let the loop below overwrite the
@@ -105,15 +138,30 @@ foreach ($reportDir in $reportDirs) {
     $changed = 0
     foreach ($f in $files) {
         $content = [System.IO.File]::ReadAllText($f.FullName)
-        $newContent = $content
-        foreach ($color in $sourceColors) {
-            $newContent = $newContent -ireplace [regex]::Escape($color), $To
+
+        # Token-wise, never a blind substring replace: each match is a complete
+        # color token, compared by canonical value and swapped whole. That is what
+        # keeps #RRGGBBAA from being rewritten as a 6-digit color plus a stray
+        # alpha, and what lets #FFF be recognised as #FFFFFF.
+        $newContent = [regex]::Replace($content, $script:HexTokenPattern, {
+            param($m)
+            $canonical = Get-CanonicalHex -Token $m.Value
+            if ($sourceSet.ContainsKey($canonical)) { return $To }
+            return $m.Value
+        })
+
+        foreach ($kv in (Get-UnsupportedNotation -Text $content).GetEnumerator()) {
+            if ($unsupportedSeen.ContainsKey($kv.Key)) { $unsupportedSeen[$kv.Key] += $kv.Value }
+            else { $unsupportedSeen[$kv.Key] = $kv.Value }
         }
+
         if ($content -ne $newContent) {
             if ($WhatIf) {
                 Write-Host "  [WhatIf] Would update: $($f.Name)"
             } else {
-                [System.IO.File]::WriteAllText($f.FullName, $newContent, [System.Text.Encoding]::UTF8)
+                # UTF8NoBom, not [System.Text.Encoding]::UTF8: the latter prepends a
+                # BOM, silently changing the encoding of every icon it touches.
+                [System.IO.File]::WriteAllText($f.FullName, $newContent, $script:Utf8NoBom)
             }
             $changed++
         }
@@ -132,10 +180,21 @@ if ($processedReports -eq 0) {
     exit 1
 }
 
+Write-Host ""
 if ($WhatIf) {
-    Write-Host ""
     Write-Host "[WhatIf] Total: $totalChanged/$totalFiles SVGs would be modified. No files were changed."
 } else {
-    Write-Host ""
     Write-Host "Done. Total: $totalChanged/$totalFiles SVGs updated (-> $To)"
+}
+
+# Say out loud what was left behind. Reporting "184/184 updated" while icons keep
+# their old color because they use rgb() or currentColor is the failure this warns
+# about - the user would otherwise find out by opening Power BI.
+if ($unsupportedSeen.Count -gt 0) {
+    Write-Host ""
+    Write-Warning "Some colors were NOT rewritten because this tool only replaces hex notation:"
+    foreach ($kv in $unsupportedSeen.GetEnumerator() | Sort-Object Value -Descending) {
+        Write-Host ("  {0}  ({1} occurrences)" -f $kv.Key, $kv.Value)
+    }
+    Write-Host "  Run detect-colors.ps1 to see which files they are in."
 }

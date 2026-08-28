@@ -1,0 +1,131 @@
+<#
+.SYNOPSIS
+  Behavioural tests for the color-token handling of detect-colors.ps1 / recolor.ps1.
+
+.DESCRIPTION
+  smoke-test.ps1 proves the happy path against the real 184-file Demo project.
+  This one builds a tiny synthetic PBIP whose SVGs contain exactly the awkward
+  cases, because the Demo has none of them: 8-digit RGBA, 3-digit shorthand,
+  rgb(), currentColor and a named color.
+
+  Every assertion reads the files, never the scripts' own printed counts.
+
+.EXAMPLE
+  pwsh tests/color-tokens-test.ps1
+#>
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path $PSScriptRoot -Parent
+$scripts  = Join-Path $repoRoot 'skills/skill-svg-recolor-powerbi/scripts'
+$detect   = Join-Path $scripts 'detect-colors.ps1'
+$recolor  = Join-Path $scripts 'recolor.ps1'
+
+$failures = @()
+function Test-Check {
+    param([string]$Name, [bool]$Ok, [string]$Detail)
+    if ($Ok) {
+        Write-Host "  PASS  $Name" -ForegroundColor Green
+        if ($Detail) { Write-Host "        $Detail" -ForegroundColor DarkGray }
+    } else {
+        Write-Host "  FAIL  $Name" -ForegroundColor Red
+        Write-Host "        $Detail" -ForegroundColor Red
+        $script:failures += $Name
+    }
+}
+
+$work = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-tokens-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+Write-Host "=== Color-token tests ===" -ForegroundColor Cyan
+Write-Host "  Fixture: $work`n"
+
+try {
+    # A minimal PBIP whose icons carry every notation worth testing. Inline rather
+    # than a New-* helper: that verb makes PSScriptAnalyzer demand ShouldProcess,
+    # which is ceremony a test fixture does not need.
+    $res = Join-Path (Join-Path (Join-Path $work 'Demo.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $res -Force | Out-Null
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    $fixture = @{
+        'plain.svg' = '<svg><path fill="#0078D4"/></svg>'
+        'alpha.svg' = '<svg><path fill="#0078D480"/><path fill="#0078D4"/></svg>'
+        'short.svg' = '<svg><path fill="#FFF"/></svg>'
+        'other.svg' = '<svg><path fill="rgb(0,120,212)"/><path stroke="currentColor"/><path fill="red"/></svg>'
+    }
+    foreach ($kv in $fixture.GetEnumerator()) {
+        [System.IO.File]::WriteAllText((Join-Path $res $kv.Key), $kv.Value, $utf8NoBom)
+    }
+
+    # --- detect: 8-digit and 6-digit are DIFFERENT colors (#11) ----------------
+    $report = & $detect -PbipDir $work -PassThru
+    $colors = @($report | ForEach-Object { $_.Color })
+    Test-Check -Name '8 y 6 digitos se reportan como colores distintos' `
+        -Ok (($colors -contains '#0078D4') -and ($colors -contains '#0078D480')) `
+        -Detail "reportados: $($colors -join ', ')"
+
+    # --- detect: #FFF normalises to #FFFFFF (#12) ------------------------------
+    Test-Check -Name '#FFF se normaliza a #FFFFFF' -Ok ($colors -contains '#FFFFFF') `
+        -Detail "reportados: $($colors -join ', ')"
+
+    # --- detect: -PassThru returns objects, not text (#22) ---------------------
+    $shape = $report | Select-Object -First 1
+    Test-Check -Name '-PassThru devuelve objetos con Color/FileCount/Report' `
+        -Ok ($null -ne $shape.Color -and $null -ne $shape.FileCount -and $null -ne $shape.Report) `
+        -Detail "$($shape.Report) / $($shape.Color) / $($shape.FileCount)"
+
+    # --- detect: unsupported notations are reported (#12) ----------------------
+    $printed = & $detect -PbipDir $work 6>&1 | Out-String
+    Test-Check -Name 'reporta rgb()/currentColor/named como no reescribibles' `
+        -Ok ($printed -match 'Not rewritable' -and $printed -match 'rgb\(\)' -and $printed -match 'currentColor') `
+        -Detail 'seccion "Not rewritable" presente'
+
+    # --- recolor: 8-digit is NOT partially rewritten (#11) ---------------------
+    & $recolor -PbipDir $work -From '#0078D4' -To '#DC143C' 6>&1 | Out-Null
+    $alpha = [System.IO.File]::ReadAllText((Join-Path $res 'alpha.svg'))
+    Test-Check -Name 'el token de 8 digitos sobrevive intacto' -Ok ($alpha -match '#0078D480') `
+        -Detail $alpha
+    Test-Check -Name 'el token de 6 digitos del mismo archivo si se reemplaza' -Ok ($alpha -match '#DC143C') `
+        -Detail $alpha
+    Test-Check -Name 'no quedo ningun #DC143C80 corrupto' -Ok ($alpha -notmatch '#DC143C80') `
+        -Detail 'sin alfa colgando'
+
+    # --- recolor: no BOM is written (#25) --------------------------------------
+    $bytes = [System.IO.File]::ReadAllBytes((Join-Path $res 'plain.svg'))
+    $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
+    Test-Check -Name 'no se inyecta BOM al escribir' -Ok (-not $hasBom) `
+        -Detail ("primeros bytes: {0}" -f (($bytes[0..2] | ForEach-Object { $_.ToString('X2') }) -join ' '))
+
+    # --- recolor: #FFF is matched by its canonical form (#12) ------------------
+    & $recolor -PbipDir $work -From '#FFFFFF' -To '#000000' 6>&1 | Out-Null
+    $short = [System.IO.File]::ReadAllText((Join-Path $res 'short.svg'))
+    Test-Check -Name '-From #FFFFFF alcanza al #FFF escrito corto' -Ok ($short -match '#000000') -Detail $short
+
+    # --- recolor: -Backup lands OUTSIDE the PBIP tree (#26) --------------------
+    $backupRoot = Join-Path $work '..' | Join-Path -ChildPath "backups-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
+    & $recolor -PbipDir $work -From '#DC143C' -To '#00FF7F' -Backup -BackupRoot $backupRoot 6>&1 | Out-Null
+    $insideTree = @(Get-ChildItem $res -Directory -Filter '*backup*' -Recurse -ErrorAction SilentlyContinue)
+    $inRoot     = @(Get-ChildItem $backupRoot -Directory -ErrorAction SilentlyContinue)
+    Test-Check -Name '-Backup no deja nada dentro del arbol PBIP' -Ok ($insideTree.Count -eq 0) `
+        -Detail "carpetas de backup bajo RegisteredResources: $($insideTree.Count)"
+    Test-Check -Name '-Backup escribe en el BackupRoot indicado' -Ok ($inRoot.Count -ge 1) `
+        -Detail "carpetas en el root: $($inRoot.Count)"
+
+    # --- recolor: warns about what it could not rewrite (#12) ------------------
+    $out = & $recolor -PbipDir $work -To '#123456' 6>&1 3>&1 | Out-String
+    Test-Check -Name 'recolor avisa de las notaciones que no reescribio' `
+        -Ok ($out -match 'NOT rewritten' -or $out -match 'rgb\(\)') -Detail 'aviso presente al final'
+}
+finally {
+    if (Test-Path $work) { Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue }
+    Get-ChildItem ([System.IO.Path]::GetTempPath()) -Directory -Filter 'backups-*' -ErrorAction SilentlyContinue |
+        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+}
+
+Write-Host ""
+if ($failures.Count -gt 0) {
+    Write-Host "COLOR-TOKEN TESTS FAILED - $($failures.Count): $($failures -join '; ')" -ForegroundColor Red
+    exit 1
+}
+Write-Host "COLOR-TOKEN TESTS PASSED" -ForegroundColor Green
+exit 0

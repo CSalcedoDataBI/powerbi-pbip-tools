@@ -67,7 +67,7 @@ Run without `-WhatIf` to apply. Add `-Backup` to save originals first:
 **Output:**
 ```text
 [MyReport.Report] Auto-detected: #003893, #CE1126, #FCD116
-[MyReport.Report] Backup saved to: ...RegisteredResources\_backup_20250115_143022
+[MyReport.Report] Backup saved to: C:\Users\you\AppData\Local\Temp\pbip-recolor-backup_MyReport.Report_20250115_143022
 [MyReport.Report] Updated 142/142 SVGs (-> #FF0000)
 
 Done. Total: 142/142 SVGs updated (-> #FF0000)
@@ -103,18 +103,39 @@ Done! Open your `.pbip` file in Power BI Desktop to see the changes.
 
 | Parameter  | Required | Description                                       |
 | :--------- | :------: | :------------------------------------------------ |
-| `-PbipDir` |    ✅    | Root folder of the PBIP project (where `.pbip` file is) |
+| `-PbipDir`  |    ✅    | Root folder of the PBIP project (where `.pbip` file is) |
+| `-PassThru` |    ❌    | Also emit `Color` / `FileCount` / `Report` objects, for scripting |
 
 ### recolor.ps1
 
 | Parameter  | Required | Description                                                                     |
 | :--------- | :------: | :------------------------------------------------------------------------------ |
 | `-PbipDir` |    ✅    | Root folder of the PBIP project (where `.pbip` file is)                         |
-| `-To`      |    ✅    | Target hex color in `#RRGGBB` format (e.g., `#FF0000`)                          |
+| `-To`      |    ✅    | Target hex color: `#RGB`, `#RGBA`, `#RRGGBB` or `#RRGGBBAA`                     |
 | `-From`    |    ❌    | Array of hex colors to replace. If omitted, replaces **all** colors            |
 | `-Exclude` |    ❌    | Array of hex colors to preserve (not modify)                                    |
-| `-Backup`  |    ❌    | Save original SVGs to a timestamped `_backup_` subfolder before modifying       |
+| `-Backup`  |    ❌    | Copy originals before writing. **Fails the run** if the backup cannot be made   |
+| `-BackupRoot` | ❌ | Where `-Backup` writes. Defaults to the system temp folder, deliberately outside the PBIP project |
 | `-WhatIf`  |    ❌    | Preview which files would change without modifying anything                     |
+
+## 🎨 Which colors are rewritten
+
+Hex notation only, in all four written forms. `#FFF` and `#FFFFFF` are treated as
+the same color; `#0078D4` and `#0078D480` are **not** — the second carries an alpha
+channel, so rewriting one must never touch the other.
+
+| Notation | Detected | Rewritten |
+|---|:---:|:---:|
+| `#RRGGBB`, `#RGB` | ✅ | ✅ |
+| `#RRGGBBAA`, `#RGBA` | ✅ | ✅ (as its own color) |
+| `rgb()` / `rgba()` | ✅ | ❌ |
+| `currentColor` | ✅ | ❌ |
+| Named colors (`red`, `black`) | ✅ | ❌ |
+
+Anything in the "not rewritten" rows is **reported** by both scripts rather than
+passed over in silence — `detect-colors.ps1` lists it, and `recolor.ps1` warns at
+the end of the run. Reporting `142/142 updated` while some icons keep their old
+color is the failure that reporting exists to prevent.
 
 ## ⚠️ Important Notes
 
