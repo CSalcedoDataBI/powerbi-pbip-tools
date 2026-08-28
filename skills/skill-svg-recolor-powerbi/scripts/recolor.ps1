@@ -23,6 +23,18 @@ if ($From) {
     }
 }
 
+# --- Validate excluded colors format (if provided) ---
+# Same strict check as -To/-From: an -Exclude that silently fails to match is a
+# color the user believed was protected and was not.
+if ($Exclude) {
+    foreach ($c in $Exclude) {
+        if ($c -notmatch '^#[0-9A-Fa-f]{6}$') {
+            Write-Error "Invalid color format in -Exclude: '$c'. Expected 6-digit hex, e.g. '#FFFFFF'."
+            exit 1
+        }
+    }
+}
+
 # --- Locate all .Report folders (supports multiple reports in one project) ---
 $reportDirs = Get-ChildItem $PbipDir -Filter "*.Report" -Directory
 if (-not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
@@ -70,9 +82,19 @@ foreach ($reportDir in $reportDirs) {
     # --- Optional backup ---
     if ($Backup -and -not $WhatIf) {
         $backupDir = Join-Path $svgDir "_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
-        New-Item -ItemType Directory -Path $backupDir | Out-Null
-        foreach ($f in $files) {
-            Copy-Item $f.FullName -Destination $backupDir
+        # Fatal on purpose. This script rewrites the user's files in place, and
+        # New-Item / Copy-Item only raise non-terminating errors by default: a
+        # backup that quietly failed would let the loop below overwrite the
+        # originals anyway. That is worse than having no -Backup at all, because
+        # the user asked for a net and would proceed believing they had one.
+        try {
+            New-Item -ItemType Directory -Path $backupDir -ErrorAction Stop | Out-Null
+            foreach ($f in $files) {
+                Copy-Item $f.FullName -Destination $backupDir -ErrorAction Stop
+            }
+        } catch {
+            Write-Error "[$($reportDir.Name)] Backup failed - no files were modified. $($_.Exception.Message)"
+            exit 1
         }
         Write-Host "[$($reportDir.Name)] Backup saved to: $backupDir"
     }
