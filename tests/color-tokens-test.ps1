@@ -159,19 +159,38 @@ try {
     $cssDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-css-$([guid]::NewGuid().ToString('N').Substring(0,6))"
     $cssRes = Join-Path (Join-Path (Join-Path $cssDir 'C.Report') 'StaticResources') 'RegisteredResources'
     New-Item -ItemType Directory -Path $cssRes -Force | Out-Null
+    # Selectors that must survive, colors that must change, and the value forms a
+    # naive 'previous char is :' rule would silently skip.
     [System.IO.File]::WriteAllText((Join-Path $cssRes 'sel.svg'),
-        '<svg><style>#fff:hover{fill:#0078D4} #abc .child{fill:#FFF} #def > path{stroke:#0078D4} #012345[a=b]{fill:#012345}</style></svg>',
+        '<svg><style>' +
+        '#fff:hover{fill:#0078D4} #abc .child{stroke:#0078D4} #def > path{fill:#0078D4} #012345[a=b]{fill:#0078D4}' +
+        ' a:hover #ABCDEF{fill:#0078D4}' +
+        ' .v1{box-shadow:0 0 2px #0078D4} .v2{filter:drop-shadow(0 0 2px #0078D4)}' +
+        ' .v3{fill:var(--x, #0078D4)} .v4{background:linear-gradient(#0078D4, #0078D4)}' +
+        ' @media (min-width:1px){ .v5{fill:#0078D4} }' +
+        ' /* commented: #0078D4 and .old{fill:#0078D4} */' +
+        '</style></svg>',
         $utf8NoBom)
     & $recolor -PbipDir $cssDir -To '#DC143C' *>&1 | Out-Null
     $sel = [System.IO.File]::ReadAllText((Join-Path $cssRes 'sel.svg'))
     Remove-Item $cssDir -Recurse -Force -ErrorAction SilentlyContinue
 
-    Test-Check -Name 'selectores :hover / descendiente / > / [attr] sobreviven a un recolor que los apunta' `
+    Test-Check -Name 'selectores :hover / descendiente / > / [attr] / tras pseudo-clase sobreviven' `
         -Ok (($sel -match '#fff:hover') -and ($sel -match '#abc \.child') -and
-             ($sel -match '#def > path') -and ($sel -match '#012345\[a=b\]')) -Detail $sel
-    Test-Check -Name 'y los valores de esas mismas reglas si cambiaron' `
-        -Ok (($sel -notmatch 'fill:#0078D4') -and ($sel -notmatch 'stroke:#0078D4') -and
-             ($sel -match 'fill:#DC143C')) -Detail 'los fill:/stroke: pasaron a #DC143C'
+             ($sel -match '#def > path') -and ($sel -match '#012345\[a=b\]') -and
+             ($sel -match 'a:hover #ABCDEF')) -Detail $sel
+
+    # Los que una regla ingenua de "caracter anterior es :" se saltaria en silencio.
+    # Exactly the two occurrences inside the CSS comment may survive. Everything
+    # else - box-shadow, drop-shadow, var(), both gradient stops, @media - is a
+    # real value-position color and must have changed.
+    $leftover = ([regex]::Matches($sel, [regex]::Escape('#0078D4'))).Count
+    Test-Check -Name 'colores en box-shadow / drop-shadow / var() / gradient / @media SI cambian' `
+        -Ok ($leftover -eq 2) -Detail "quedan $leftover ocurrencias de #0078D4, ambas dentro del comentario"
+
+    Test-Check -Name 'el CSS comentado no se toca' `
+        -Ok ($sel -match '/\* commented: #0078D4 and \.old\{fill:#0078D4\} \*/') `
+        -Detail 'el comentario conserva sus dos colores intactos'
 
     # --- recolor: warns even when there is nothing to rewrite (#12) ------------
     # The case where the warning matters most: every color is a notation this tool

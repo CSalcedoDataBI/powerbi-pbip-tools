@@ -34,18 +34,53 @@ $script:FragmentRefPattern =
     '(?i)(?:url\s*\(\s*(?:["'']|&apos;|&quot;)?\s*#[^)"''\s&]+' +
     '|(?:xlink:)?href\s*=\s*(?:["'']|&apos;|&quot;)\s*#[^"''\s>&]*)'
 
-# Inside a <style> block, CSS has TWO uses for '#' and only one of them is a color:
+# Inside a <style> block, CSS has two uses for '#' and only one is a color:
 #
 #     #fff:hover > path { fill: #0078D4 }
-#     ^^^^ id selector                ^^^^^^^ color
+#     ^^^^ selector                ^^^^^^^ color
 #
-# Chasing selector shapes one at a time does not converge - #a{, #a,#b, #a:hover,
-# #a .child, #a > path, #a[attr=v] are all the same thing. The rule that does
-# converge is positional: a '#token' in a style block is a COLOR only when it sits
-# in value position, i.e. the previous non-whitespace character is ':'. Everything
-# else there is a selector, and rewriting one breaks the stylesheet while the
-# matching id attribute stays put.
-$script:StyleBlockPattern = '(?is)<style\b[^>]*>.*?</style>'
+# Two rules that were tried and are NOT enough, recorded so they are not retried:
+#   - matching selector shapes (#a{, #a,#b, #a:hover, #a .child, #a > path,
+#     #a[attr=v]) never converges; there is always another shape.
+#   - "previous non-whitespace char is ':'" flips the error instead of removing it:
+#     it silently SKIPS real colors in box-shadow: 0 0 2px #fff,
+#     linear-gradient(#fff,#000) and var(--x, #0078D4), so the script reports
+#     files as updated while their colors stay put.
+#
+# What does converge is the smallest amount of CSS structure that answers the
+# question: a '#token' is a color when it sits in a DECLARATION VALUE, which means
+#   1. it is inside a braced block (declarations cannot exist at depth 0), and
+#   2. scanning back to the nearest '{', '}' or ';' finds a ':' first.
+# Comments are removed before either test, so a color in commented-out CSS is
+# neither reported nor rewritten.
+$script:StyleBlockPattern   = '(?is)<style\b[^>]*>(.*?)</style>'
+$script:CssCommentPattern   = '(?s)/\*.*?\*/'
+
+function Test-CssValuePosition {
+    <#
+    .SYNOPSIS
+      Is the '#' at $Index inside a CSS declaration value, given the style-block
+      text $Css that starts at $Offset in the document?
+    #>
+    param(
+        [Parameter(Mandatory)][AllowEmptyString()][string]$Css,
+        [Parameter(Mandatory)][int]$Local
+    )
+
+    $depth = 0
+    for ($k = 0; $k -lt $Local; $k++) {
+        if ($Css[$k] -eq '{') { $depth++ }
+        elseif ($Css[$k] -eq '}') { $depth-- }
+    }
+    if ($depth -lt 1) { return $false }   # depth 0 is selector territory
+
+    for ($k = $Local - 1; $k -ge 0; $k--) {
+        $ch = $Css[$k]
+        if ($ch -eq ':') { return $true }
+        if ($ch -eq '{' -or $ch -eq '}' -or $ch -eq ';') { return $false }
+    }
+    return $false
+}
 
 function Get-ColorTokenMatch {
     <#
@@ -56,9 +91,15 @@ function Get-ColorTokenMatch {
     #>
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
 
+    # Style blocks, with their comments blanked out. Blanking rather than deleting
+    # keeps every index in the original document valid.
     $styleSpans = @()
+    $cssBlank = $Text
     foreach ($r in [regex]::Matches($Text, $script:StyleBlockPattern)) {
         $styleSpans += , @($r.Index, ($r.Index + $r.Length))
+    }
+    foreach ($c in [regex]::Matches($Text, $script:CssCommentPattern)) {
+        $cssBlank = $cssBlank.Remove($c.Index, $c.Length).Insert($c.Index, (' ' * $c.Length))
     }
 
     $refSpans = @()
@@ -79,10 +120,10 @@ function Get-ColorTokenMatch {
         if (-not $inside) {
             foreach ($span in $styleSpans) {
                 if ($m.Index -ge $span[0] -and $m.Index -lt $span[1]) {
-                    # In a style block: value position or selector?
-                    $j = $m.Index - 1
-                    while ($j -ge 0 -and [char]::IsWhiteSpace($Text[$j])) { $j-- }
-                    if ($j -lt 0 -or $Text[$j] -ne ':') { $inside = $true }
+                    # Inside a comment (blanked above), or not in value position.
+                    if ($cssBlank[$m.Index] -ne '#') { $inside = $true }
+                    elseif (-not (Test-CssValuePosition -Css $cssBlank.Substring($span[0], $span[1] - $span[0]) `
+                                                       -Local ($m.Index - $span[0]))) { $inside = $true }
                     break
                 }
             }
