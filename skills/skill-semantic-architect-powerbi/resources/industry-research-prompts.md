@@ -101,12 +101,6 @@ Reemplazar `[INDUSTRY]` con la industria detectada en Fase 1.
 
 **KPIs esperados**: On-Time Delivery Rate, Order Fulfillment Rate, Inventory Accuracy, Freight Cost per Unit, Warehouse Capacity Utilization.
 
----
-
-## Enriquecimiento con Documentos Internos
-
-Si el usuario proporciona documentos, buscar:
-
 ### Energía / Utilities
 
 ```
