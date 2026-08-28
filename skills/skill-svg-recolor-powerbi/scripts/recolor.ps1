@@ -42,6 +42,7 @@ if (-not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit
 $toUpper = $To.ToUpper()
 $totalChanged = 0
 $totalFiles = 0
+$processedReports = 0
 
 foreach ($reportDir in $reportDirs) {
     $svgDir = Join-Path $reportDir.FullName "StaticResources\RegisteredResources"
@@ -50,6 +51,7 @@ foreach ($reportDir in $reportDirs) {
         continue
     }
 
+    $processedReports++
     $files = Get-ChildItem $svgDir -Filter "*.svg"
     $totalFiles += $files.Count
 
@@ -120,6 +122,14 @@ foreach ($reportDir in $reportDirs) {
 
     $action = if ($WhatIf) { "Would update" } else { "Updated" }
     Write-Host "[$($reportDir.Name)] $action $changed/$($files.Count) SVGs (-> $To)"
+}
+
+# Every .Report was skipped for lack of RegisteredResources: nothing was even
+# looked at. Exiting 0 with "0/0 SVGs updated" reads as success to a human and
+# to any script calling this one.
+if ($processedReports -eq 0) {
+    Write-Error "No RegisteredResources folder found in any .Report under: $PbipDir"
+    exit 1
 }
 
 if ($WhatIf) {

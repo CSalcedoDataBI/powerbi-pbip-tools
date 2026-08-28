@@ -7,6 +7,7 @@ $reportDirs = Get-ChildItem $PbipDir -Filter "*.Report" -Directory
 if (-not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
 
 $hexRegex = [regex]::new('#[0-9A-Fa-f]{6}')
+$processedReports = 0
 
 foreach ($reportDir in $reportDirs) {
     $svgDir = Join-Path $reportDir.FullName "StaticResources\RegisteredResources"
@@ -14,6 +15,8 @@ foreach ($reportDir in $reportDirs) {
         Write-Warning "RegisteredResources not found in: $($reportDir.FullName) - skipping."
         continue
     }
+
+    $processedReports++
 
     # --- Scan SVGs for hex colors ---
     $files = Get-ChildItem $svgDir -Filter "*.svg"
@@ -44,4 +47,11 @@ foreach ($reportDir in $reportDirs) {
         Write-Host ("  {0}  ({1} files)" -f $kv.Key, $kv.Value)
     }
     Write-Host ""
+}
+
+# Same reason as recolor.ps1: a clean exit after scanning nothing is a false
+# success, and this script is meant to be read by the next command in a pipeline.
+if ($processedReports -eq 0) {
+    Write-Error "No RegisteredResources folder found in any .Report under: $PbipDir"
+    exit 1
 }

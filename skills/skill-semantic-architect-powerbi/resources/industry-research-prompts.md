@@ -90,6 +90,23 @@ Reemplazar `[INDUSTRY]` con la industria detectada en Fase 1.
 
 **KPIs esperados**: Enrollment Count, Retention Rate, Graduation Rate, GPA Distribution, Student-to-Faculty Ratio, Course Completion Rate.
 
+### Logística / Supply Chain
+
+```
+"Supply chain KPIs logistics analytics"
+"Freight and transportation data dictionary"
+"On-time delivery rate DAX Power BI"
+"Warehouse efficiency metrics"
+```
+
+**KPIs esperados**: On-Time Delivery Rate, Order Fulfillment Rate, Inventory Accuracy, Freight Cost per Unit, Warehouse Capacity Utilization.
+
+---
+
+## Enriquecimiento con Documentos Internos
+
+Si el usuario proporciona documentos, buscar:
+
 ### Energía / Utilities
 
 ```
