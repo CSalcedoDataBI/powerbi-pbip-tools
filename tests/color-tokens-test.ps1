@@ -35,7 +35,20 @@ function Test-Check {
     }
 }
 
-$work = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-tokens-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+# Every temp path this test creates, so the finalizer removes exactly those and
+# nothing else. A glob like 'backups-*' over the whole temp directory would take
+# unrelated data with it.
+$script:tempPaths = @()
+# Get-, not New-: it computes and registers a path, it does not create anything
+# on disk. A New- verb would also make PSScriptAnalyzer demand ShouldProcess.
+function Get-ScopedTempPath {
+    param([Parameter(Mandatory)][string]$Prefix)
+    $p = Join-Path ([System.IO.Path]::GetTempPath()) "$Prefix-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+    $script:tempPaths += $p
+    return $p
+}
+
+$work = Get-ScopedTempPath -Prefix 'pbip-tokens'
 Write-Host "=== Color-token tests ===" -ForegroundColor Cyan
 Write-Host "  Fixture: $work`n"
 
@@ -139,7 +152,7 @@ try {
     Test-Check -Name '-From #FFFFFF alcanza al #FFF escrito corto' -Ok ($short -match '#000000') -Detail $short
 
     # --- recolor: -Backup lands OUTSIDE the PBIP tree (#26) --------------------
-    $backupRoot = Join-Path $work '..' | Join-Path -ChildPath "backups-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $backupRoot = Get-ScopedTempPath -Prefix 'pbip-backups'
     New-Item -ItemType Directory -Path $backupRoot -Force | Out-Null
     & $recolor -PbipDir $work -From '#DC143C' -To '#00FF7F' -Backup -BackupRoot $backupRoot 6>&1 | Out-Null
     $insideTree = @(Get-ChildItem $res -Directory -Filter '*backup*' -Recurse -ErrorAction SilentlyContinue)
@@ -205,7 +218,7 @@ try {
     # This has to run after a recolor whose -From actually matches the selectors,
     # or the check passes without exercising anything. An auto-detect run (no
     # -From) is the harshest case: every color in the file is a target.
-    $cssDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-css-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $cssDir = Get-ScopedTempPath -Prefix 'pbip-css'
     $cssRes = Join-Path (Join-Path (Join-Path $cssDir 'C.Report') 'StaticResources') 'RegisteredResources'
     New-Item -ItemType Directory -Path $cssRes -Force | Out-Null
     # Selectors that must survive, colors that must change, and the value forms a
@@ -268,7 +281,7 @@ try {
     # --- multi-value -From / -Exclude ------------------------------------------
     # Note these must be called with & so PowerShell passes an ARRAY; 'pwsh -File'
     # hands the script one literal string and the test would prove nothing.
-    $mvDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-mv-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $mvDir = Get-ScopedTempPath -Prefix 'pbip-mv'
     $mvRes = Join-Path (Join-Path (Join-Path $mvDir 'M.Report') 'StaticResources') 'RegisteredResources'
     New-Item -ItemType Directory -Path $mvRes -Force | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $mvRes 'a.svg'),
@@ -310,7 +323,7 @@ try {
     # --- files that are not UTF-8 are skipped, not mangled ---------------------
     # ReadAllText would decode a latin-1 file with replacement characters and the
     # write would make that damage permanent, for the sake of one color.
-    $encDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-enc-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $encDir = Get-ScopedTempPath -Prefix 'pbip-enc'
     $encRes = Join-Path (Join-Path (Join-Path $encDir 'E.Report') 'StaticResources') 'RegisteredResources'
     New-Item -ItemType Directory -Path $encRes -Force | Out-Null
     $latin = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
@@ -349,7 +362,7 @@ try {
     # --- recolor: warns even when there is nothing to rewrite (#12) ------------
     # The case where the warning matters most: every color is a notation this tool
     # does not handle, so nothing changes and the user needs to know why.
-    $onlyDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-only-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $onlyDir = Get-ScopedTempPath -Prefix 'pbip-only'
     $onlyRes = Join-Path (Join-Path (Join-Path $onlyDir 'X.Report') 'StaticResources') 'RegisteredResources'
     New-Item -ItemType Directory -Path $onlyRes -Force | Out-Null
     [System.IO.File]::WriteAllText((Join-Path $onlyRes 'only.svg'),
@@ -366,9 +379,12 @@ try {
         -Ok ($out -match 'NOT rewritten' -or $out -match 'rgb\(\)') -Detail 'aviso presente al final'
 }
 finally {
-    if (Test-Path $work) { Remove-Item $work -Recurse -Force -ErrorAction SilentlyContinue }
-    Get-ChildItem ([System.IO.Path]::GetTempPath()) -Directory -Filter 'backups-*' -ErrorAction SilentlyContinue |
-        Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    # Only the paths this run created, by exact name. The inline Remove-Item calls
+    # above are best-effort; this is what guarantees nothing leaks when the script
+    # throws before reaching them.
+    foreach ($p in $script:tempPaths) {
+        if ($p -and (Test-Path $p)) { Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue }
+    }
 }
 
 Write-Host ""

@@ -83,6 +83,7 @@ $totalFiles = 0
 $processedReports = 0
 $unsupportedSeen = @{}
 $scannedForUnsupported = @{}
+$filesWithUnsupported = @{}
 
 foreach ($reportDir in $reportDirs) {
     $svgDir = Join-PbipPath -ReportDir $reportDir.FullName
@@ -136,6 +137,7 @@ foreach ($reportDir in $reportDirs) {
             foreach ($kv in (Get-UnsupportedNotation -Text $text).GetEnumerator()) {
                 if ($unsupportedSeen.ContainsKey($kv.Key)) { $unsupportedSeen[$kv.Key] += $kv.Value }
                 else { $unsupportedSeen[$kv.Key] = $kv.Value }
+                $filesWithUnsupported[$f.FullName] = $true
             }
             $scannedForUnsupported[$f.FullName] = $true
         }
@@ -191,6 +193,7 @@ foreach ($reportDir in $reportDirs) {
             foreach ($kv in (Get-UnsupportedNotation -Text $content).GetEnumerator()) {
                 if ($unsupportedSeen.ContainsKey($kv.Key)) { $unsupportedSeen[$kv.Key] += $kv.Value }
                 else { $unsupportedSeen[$kv.Key] = $kv.Value }
+                $filesWithUnsupported[$f.FullName] = $true
             }
         }
 
@@ -225,7 +228,10 @@ Write-Host ""
 if ($WhatIf) {
     Write-Host "[WhatIf] Total: $totalChanged/$totalFiles SVGs would be modified. No files were changed."
 } else {
-    Write-Host "Done. Total: $totalChanged/$totalFiles SVGs updated (-> $To)"
+    # "updated" would read as "fully recolored". This counts files this run
+    # MODIFIED; a file can be modified and still hold a color this tool does
+    # not rewrite, which the warning below then names.
+    Write-Host "Done. Total: $totalChanged/$totalFiles SVGs modified (-> $To)"
 }
 
 # Say out loud what was left behind. Reporting "184/184 updated" while icons keep
@@ -233,7 +239,7 @@ if ($WhatIf) {
 # about - the user would otherwise find out by opening Power BI.
 if ($unsupportedSeen.Count -gt 0) {
     Write-Host ""
-    Write-Warning "Some colors were NOT rewritten because this tool only replaces hex notation:"
+    Write-Warning ("Some colors were NOT rewritten in {0} file(s), because this tool only replaces hex notation:" -f $filesWithUnsupported.Count)
     foreach ($kv in $unsupportedSeen.GetEnumerator() | Sort-Object Value -Descending) {
         Write-Host ("  {0}  ({1} occurrences)" -f $kv.Key, $kv.Value)
     }

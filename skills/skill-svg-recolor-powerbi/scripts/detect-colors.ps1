@@ -54,6 +54,7 @@ foreach ($reportDir in $reportDirs) {
     }
     $colorCount = @{}
     $unsupported = @{}
+    $unsupportedFiles = @{}
 
     foreach ($f in $files) {
         $text = [System.IO.File]::ReadAllText($f.FullName)
@@ -71,6 +72,8 @@ foreach ($reportDir in $reportDirs) {
         foreach ($kv in (Get-UnsupportedNotation -Text $text).GetEnumerator()) {
             if ($unsupported.ContainsKey($kv.Key)) { $unsupported[$kv.Key] += $kv.Value }
             else { $unsupported[$kv.Key] = $kv.Value }
+            if (-not $unsupportedFiles.ContainsKey($kv.Key)) { $unsupportedFiles[$kv.Key] = @() }
+            $unsupportedFiles[$kv.Key] += $f.Name
         }
     }
 
@@ -97,7 +100,13 @@ foreach ($reportDir in $reportDirs) {
         Write-Host ""
         Write-Host "  Not rewritable by recolor.ps1 (reported only):"
         foreach ($kv in $unsupported.GetEnumerator() | Sort-Object Value -Descending) {
-            Write-Host ("    {0}  ({1} occurrences)" -f $kv.Key, $kv.Value)
+            $where = @($unsupportedFiles[$kv.Key] | Sort-Object -Unique)
+            # Naming the files is the point: recolor.ps1 tells the user to come
+            # here to find out WHICH icons kept their color, so an aggregate
+            # count would make that instruction a dead end.
+            $shown = if ($where.Count -gt 4) { ($where[0..3] -join ', ') + ", +$($where.Count - 4) more" }
+                     else { $where -join ', ' }
+            Write-Host ("    {0}  ({1} occurrences in {2} file(s): {3})" -f $kv.Key, $kv.Value, $where.Count, $shown)
         }
     }
     Write-Host ""
