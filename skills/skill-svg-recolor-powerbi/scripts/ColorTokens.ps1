@@ -149,7 +149,12 @@ function Get-CssValueRange {
                 # depth 1 while still in SELECTOR territory, so depth alone says
                 # yes to the ':' of ':hover' and invents a declaration value.
                 $prelude = $masked.Substring($preludeStart, $i - $preludeStart).TrimStart()
-                $blocks.Push($prelude.StartsWith('@'))
+                # Not every at-rule is a grouping at-rule. @font-face, @property,
+                # @page and friends hold DECLARATIONS, so a color in
+                # '@property --brand{initial-value:#0078D4}' is a real color.
+                $isGroupingAtRule = $prelude.StartsWith('@') -and
+                    ($prelude -notmatch '(?i)^@(font-face|page|property|counter-style|font-palette-values|viewport)')
+                $blocks.Push($isGroupingAtRule)
                 $preludeStart = $i + 1
             }
         }
@@ -248,7 +253,12 @@ $script:UnsupportedPatterns = [ordered]@{
     'currentColor' = '(?i)\bcurrentColor\b'
     # Both the attribute form (fill="red") and the inline-style form
     # (style="fill:red"). Still not a CSS parser: a <style> block is out of reach.
-    'named color'  = '(?i)(?:fill|stroke|stop-color|flood-color|lighting-color)\s*[:=]\s*["'']?\s*(?!none|inherit|transparent|currentColor|url\(|#)[A-Za-z]{3,}'
+    # The denylist carries every CSS-wide and SVG paint keyword, plus a guard for
+    # function calls: var(--brand) and context-fill are not named colors, and
+    # reporting them makes the closing warning misleading.
+    'named color'  = '(?i)(?:fill|stroke|stop-color|flood-color|lighting-color)\s*[:=]\s*["'']?\s*' +
+                     '(?!none|inherit|initial|unset|revert|transparent|currentColor|context-fill|context-stroke|url\(|#)' +
+                     '[A-Za-z][A-Za-z-]{2,}(?!\s*\()'
 }
 
 function Get-CanonicalHex {

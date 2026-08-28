@@ -152,6 +152,21 @@ try {
         -Ok ($inRoot.Count -ge 1 -and $copied.Count -eq $originals.Count) `
         -Detail "copiados $($copied.Count) de $($originals.Count) originales"
 
+    # --- no stray control characters in the shipped scripts --------------------
+    # A '\b' written in a non-raw Python helper string is a BACKSPACE, not a word
+    # boundary. It shipped inside a regex twice - once in the named-color pattern,
+    # once in the at-rule pattern - and each time the pattern silently matched
+    # nothing. Cheap to check, invisible to read, so it is checked.
+    $ctrl = @()
+    foreach ($f in (Get-ChildItem (Join-Path $repoRoot 'skills') -Recurse -Filter '*.ps1') +
+                   (Get-ChildItem (Join-Path $repoRoot 'tests') -Filter '*.ps1')) {
+        $raw = [System.IO.File]::ReadAllText($f.FullName)
+        $bad = ($raw.ToCharArray() | Where-Object { [int]$_ -lt 32 -and $_ -ne "`n" -and $_ -ne "`r" -and $_ -ne "`t" }).Count
+        if ($bad -gt 0) { $ctrl += "$($f.Name): $bad" }
+    }
+    Test-Check -Name 'ningun caracter de control suelto en los .ps1' -Ok ($ctrl.Count -eq 0) `
+        -Detail $(if ($ctrl.Count -eq 0) { 'limpio' } else { $ctrl -join ' | ' })
+
     # --- CSS classification, at the unit level ---------------------------------
     # Round 7 found five ways the CSS scan gave a wrong answer, all of them about
     # delimiters living inside strings and url(). These pin each one: the table is
@@ -163,6 +178,8 @@ try {
         @{ n = 'a brace inside a string is not a brace'; t = '<svg><style>.a::before{content:"}";fill:#fff}</style></svg>';                          e = '#fff' }
         @{ n = 'a semicolon in a data URL is not one';   t = '<svg><style>.a{background:url("data:image/svg+xml;utf8,x");fill:#fff}</style></svg>';  e = '#fff' }
         @{ n = 'selector vs value in one rule';          t = '<svg><style>#fff:hover{fill:#000}</style></svg>';                                      e = '#000' }
+        @{ n = 'declaration-list at-rules hold colors'; t = '<svg><style>@property --brand{syntax:1;initial-value:#0078D4}</style></svg>';             e = '#0078D4' }
+        @{ n = 'font-face is a declaration list';       t = '<svg><style>@font-face{src:url(a);color:#111}</style></svg>';                              e = '#111' }
         @{ n = 'at-rule block is selector territory'; t = '<svg><style>@media (min-width:1px){ a:hover #ABCDEF { fill:#000 } }</style></svg>';          e = '#000' }
         @{ n = 'nested at-rules';                    t = '<svg><style>@supports (x:y){@media (min-width:1px){ #FEDCBA:focus{fill:#111} }}</style></svg>'; e = '#111' }
         @{ n = 'at-rule without a block';            t = '<svg><style>@import url(a.css);.a{fill:#111}</style></svg>';                                 e = '#111' }
@@ -228,6 +245,16 @@ try {
     $prose = (Get-UnsupportedNotation -Text '<svg><desc>usa currentColor y rgb(1,2,3)</desc><path fill="#111"/></svg>')
     Test-Check -Name 'currentColor en un <desc> no cuenta como notacion sin reescribir' `
         -Ok ($prose.Count -eq 0) -Detail "notaciones reportadas: $($prose.Count)"
+
+    # --- keywords and functions are not named colors ---------------------------
+    $kw = @('<path style="fill:var(--brand)"/>', '<path fill="context-fill"/>',
+            '<path fill="initial"/>', '<path stroke="unset"/>')
+    $kwFalse = 0
+    foreach ($t in $kw) { if ((Get-UnsupportedNotation -Text $t)['named color']) { $kwFalse++ } }
+    $realNamed = (Get-UnsupportedNotation -Text '<path fill="red"/>')['named color']
+    Test-Check -Name 'var()/context-fill/initial/unset no se reportan como color con nombre' `
+        -Ok ($kwFalse -eq 0 -and $realNamed -eq 1) `
+        -Detail "falsos positivos: $kwFalse / 'red' sigue detectado: $realNamed"
 
     # --- files that are not UTF-8 are skipped, not mangled ---------------------
     # ReadAllText would decode a latin-1 file with replacement characters and the
