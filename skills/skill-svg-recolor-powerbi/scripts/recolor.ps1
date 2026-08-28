@@ -103,6 +103,15 @@ foreach ($reportDir in $reportDirs) {
     $files = @()
     $encodingOf = @{}
     foreach ($f in $allFiles) {
+        # A symlink or junction inside RegisteredResources points somewhere this
+        # tool never promised to touch, and WriteAllText follows it: the write
+        # lands outside the project while the run reports 1/1 modified. Reading
+        # through one is harmless, so detect-colors still does; writing is not.
+        if ($f.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+            Write-Warning "  Skipped (link, writes would land outside the project): $($f.Name)"
+            continue
+        }
+
         $kind = Get-FileEncodingKind -Path $f.FullName
         if ($kind -eq 'Utf16' -or $kind -eq 'Other') {
             Write-Warning "  Skipped (not UTF-8, would be re-encoded): $($f.Name)"

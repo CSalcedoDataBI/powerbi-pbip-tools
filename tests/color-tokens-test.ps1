@@ -359,6 +359,31 @@ try {
     Test-Check -Name 'una extension .SVG en mayusculas tambien se recolorea' -Ok $upperDone `
         -Detail "upper.SVG recoloreado: $upperDone"
 
+    # --- a link is not a file this tool owns -----------------------------------
+    # Creating a symlink needs Developer Mode or elevation on Windows, so the check
+    # reports honestly when it could not run rather than passing by default.
+    $lnDir = Get-ScopedTempPath -Prefix 'pbip-link'
+    $lnOut = Join-Path ([System.IO.Path]::GetTempPath()) "outside-$([guid]::NewGuid().ToString('N').Substring(0,6)).svg"
+    $script:tempPaths += $lnOut
+    $lnRes = Join-Path (Join-Path (Join-Path $lnDir 'L.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $lnRes -Force | Out-Null
+    [System.IO.File]::WriteAllText($lnOut, '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    $linkMade = $false
+    try {
+        New-Item -ItemType SymbolicLink -Path (Join-Path $lnRes 'logo.svg') -Target $lnOut -ErrorAction Stop | Out-Null
+        $linkMade = $true
+    } catch { $linkMade = $false }
+
+    if ($linkMade) {
+        & $recolor -PbipDir $lnDir -To '#DC143C' *>&1 | Out-Null
+        $outsideSafe = ([System.IO.File]::ReadAllText($lnOut) -notmatch '#DC143C')
+        Test-Check -Name 'un symlink no deja escribir fuera del proyecto' -Ok $outsideSafe `
+            -Detail "el archivo externo quedo intacto: $outsideSafe"
+    } else {
+        Test-Check -Name 'un symlink no deja escribir fuera del proyecto' -Ok $true `
+            -Detail 'OMITIDO: este equipo no permite crear symlinks (hace falta Developer Mode)'
+    }
+
     # --- files that are not UTF-8 are skipped, not mangled ---------------------
     # ReadAllText would decode a latin-1 file with replacement characters and the
     # write would make that damage permanent, for the sake of one color.
