@@ -362,8 +362,23 @@ function Get-FileEncodingKind {
     $read = $sample.Length
     $head = $sample
 
-    if ($read -ge 3 -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF) { return 'Utf8Bom' }
+    $hasUtf8Bom = ($read -ge 3 -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF)
     if ($read -ge 2 -and (($head[0] -eq 0xFF -and $head[1] -eq 0xFE) -or ($head[0] -eq 0xFE -and $head[1] -eq 0xFF))) { return 'Utf16' }
+
+    # The strict decode runs for BOM files too, BEFORE trusting the mark. A BOM
+    # says what the author intended, not what the bytes are: EF BB BF followed by
+    # a stray 0xE9 is still invalid UTF-8, and returning early on the mark would
+    # let ReadAllText substitute a replacement character that the write makes
+    # permanent.
+    try {
+        $strict = New-Object System.Text.UTF8Encoding($false, $true)
+        $body = if ($hasUtf8Bom) { $sample[3..($sample.Length - 1)] } else { $sample }
+        if ($body.Length -gt 0) { [void]$strict.GetString($body) }
+    } catch {
+        return 'Other'
+    }
+
+    if ($hasUtf8Bom) { return 'Utf8Bom' }
 
     # UTF-16 without a BOM still has to be caught, or ReadAllText decodes it as
     # UTF-8 and the file goes back out re-encoded. Two cheap signals: interleaved
@@ -381,17 +396,6 @@ function Get-FileEncodingKind {
     # decode the file wrongly and WriteAllText would then save that damage.
     $declared = [regex]::Match($ascii, '(?i)<\?xml[^>]*encoding\s*=\s*["'']([^"'']+)')
     if ($declared.Success -and $declared.Groups[1].Value -notmatch '(?i)^utf-?8$') { return 'Other' }
-
-    # No declaration is not proof of UTF-8. A latin-1 file carrying an accented
-    # character is not valid UTF-8, and decoding it would turn those bytes into
-    # replacement characters that the write would then make permanent. Ask the
-    # decoder to throw instead of substituting.
-    try {
-        $strict = New-Object System.Text.UTF8Encoding($false, $true)
-        [void]$strict.GetString($sample)
-    } catch {
-        return 'Other'
-    }
 
     return 'Utf8NoBom'
 }

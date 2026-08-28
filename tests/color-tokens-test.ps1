@@ -301,16 +301,32 @@ try {
     [System.IO.File]::WriteAllBytes((Join-Path $encRes 'nodecl.svg'),
         $latin.GetBytes('<svg><title>A' + [char]0xF1 + 'adir ' + [char]0xA9 + '</title><path fill="#0078D4"/></svg>'))
     [System.IO.File]::WriteAllText((Join-Path $encRes 'ok.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    # A BOM states an intention, not a fact: these bytes carry the UTF-8 mark and
+    # then a stray 0xE9, which is not valid UTF-8. Trusting the mark and skipping
+    # the decode check would substitute a replacement character and save it.
+    [System.IO.File]::WriteAllBytes((Join-Path $encRes 'bomBad.svg'),
+        ([byte[]](0xEF, 0xBB, 0xBF) +
+         [System.Text.Encoding]::ASCII.GetBytes('<svg><title>A') + [byte[]](0xE9) +
+         [System.Text.Encoding]::ASCII.GetBytes('</title><path fill="#0078D4"/></svg>')))
+    [System.IO.File]::WriteAllText((Join-Path $encRes 'bomOk.svg'), '<svg><path fill="#0078D4"/></svg>',
+                                   (New-Object System.Text.UTF8Encoding($true)))
     $encBefore = @{}
     foreach ($f in (Get-ChildItem $encRes -Filter '*.svg')) { $encBefore[$f.Name] = (Get-FileHash $f.FullName).Hash }
     & $recolor -PbipDir $encDir -To '#DC143C' *>&1 | Out-Null
     $latinIntact = ((Get-FileHash (Join-Path $encRes 'decl.svg')).Hash -eq $encBefore['decl.svg']) -and
                    ((Get-FileHash (Join-Path $encRes 'nodecl.svg')).Hash -eq $encBefore['nodecl.svg'])
     $utf8Changed = (Get-FileHash (Join-Path $encRes 'ok.svg')).Hash -ne $encBefore['ok.svg']
+    $bomBadIntact = (Get-FileHash (Join-Path $encRes 'bomBad.svg')).Hash -eq $encBefore['bomBad.svg']
+    $bomOkChanged = (Get-FileHash (Join-Path $encRes 'bomOk.svg')).Hash -ne $encBefore['bomOk.svg']
+    $bomBytes = [System.IO.File]::ReadAllBytes((Join-Path $encRes 'bomOk.svg'))
+    $bomKept = ($bomBytes[0] -eq 0xEF -and $bomBytes[1] -eq 0xBB -and $bomBytes[2] -eq 0xBF)
     Remove-Item $encDir -Recurse -Force -ErrorAction SilentlyContinue
     Test-Check -Name 'archivos latin-1 se saltan intactos (con y sin declaracion XML)' `
         -Ok ($latinIntact -and $utf8Changed) `
         -Detail "latin-1 intactos: $latinIntact / el UTF-8 si cambio: $utf8Changed"
+    Test-Check -Name 'un BOM con bytes invalidos detras tambien se salta' `
+        -Ok ($bomBadIntact -and $bomOkChanged -and $bomKept) `
+        -Detail "bomBad intacto: $bomBadIntact / bomOk cambio: $bomOkChanged / conservo BOM: $bomKept"
 
     # --- recolor: warns even when there is nothing to rewrite (#12) ------------
     # The case where the warning matters most: every color is a notation this tool
