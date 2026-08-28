@@ -28,7 +28,7 @@ First, see what colors are currently in your project:
 ```text
 Report : MyReport.Report
 Folder : C:\MyProject\MyReport.Report\StaticResources\RegisteredResources
-SVGs   : 142 scanned
+SVGs   : 142 scanned (142 found)
 Colors : 3 unique hex colors found
 
   #003893  (62 files)
@@ -70,7 +70,7 @@ Run without `-WhatIf` to apply. Add `-Backup` to save originals first:
 [MyReport.Report] Backup saved to: C:\Users\you\AppData\Local\Temp\pbip-recolor-backup_MyReport.Report_20250115_143022
 [MyReport.Report] Modified 142/142 SVGs (-> #FF0000)
 
-Done. Total: 142/142 SVGs updated (-> #FF0000)
+Done. Total: 142/142 SVGs modified (-> #FF0000)
 ```
 
 Done! Open your `.pbip` file in Power BI Desktop to see the changes.
@@ -171,10 +171,38 @@ color is the failure that reporting exists to prevent.
 
 ## 🔍 How It Works
 
-1. **Locates SVGs**: Finds the `StaticResources/RegisteredResources` folder inside `YourProject.Report/`
-2. **Scans for colors**: Uses regex to find all 6-digit hex colors (`#RRGGBB`)
-3. **Replaces colors**: Updates SVG files with the new color
-4. **Preserves structure**: Only changes color values, leaves SVG structure intact
+1. **Locates SVGs**: finds `StaticResources/RegisteredResources` inside every `*.Report/` folder
+   of the project, so a multi-report project is handled in one run.
+2. **Reads the encoding first**: a file is skipped, not rewritten, when it is UTF-16 or when its
+   bytes are not valid UTF-8. A UTF-8 BOM is written back if it was there and not added if it
+   was not.
+3. **Finds colors, not every `#`**: matches `#RGB`, `#RGBA`, `#RRGGBB` and `#RRGGBBAA`, then
+   discards the ones that are not paint - fragment references like `url(#grad)`, CSS selectors
+   inside a `<style>` block, and text inside comments, `<desc>`, `<title>`, `<metadata>` and
+   `<script>`.
+4. **Replaces whole tokens**: each match is swapped as a unit after normalising it, so `#FFF` and
+   `#FFFFFF` count as one color while `#0078D4` and `#0078D4**80**` stay two.
+5. **Reports what it did not do**: `rgb()`, `currentColor` and named colors are counted and named,
+   because a silent skip is how a recolor ends up looking finished when it is not.
+
+## 🧪 Running the checks
+
+The same two suites CI runs, from the repository root:
+
+```powershell
+# once, pinned to the version CI uses
+Install-Module PSScriptAnalyzer -RequiredVersion 1.25.0 -Scope CurrentUser
+
+Invoke-ScriptAnalyzer -Path skills -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+Invoke-ScriptAnalyzer -Path tests  -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+
+pwsh ./tests/smoke-test.ps1          # end to end against a copy of examples/Demo
+pwsh ./tests/color-tokens-test.ps1   # the awkward colour cases, on a synthetic project
+```
+
+Both test scripts work on throwaway copies and exit non-zero on failure. The lint fails the build
+on `Warning` as well as `Error`, deliberately: the bug that started this suite
+(`PSAvoidAssignmentToAutomaticVariable`) is only a Warning.
 
 ## 📁 PBIP Structure
 
