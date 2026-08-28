@@ -130,7 +130,20 @@ channel, so rewriting one must never touch the other.
 | `#RRGGBBAA`, `#RGBA` | ✅ | ✅ (as its own color) |
 | `rgb()` / `rgba()` | ✅ | ❌ |
 | `currentColor` | ✅ | ❌ |
-| Named colors (`red`, `black`) | ✅ | ❌ |
+| Named colors (`red`, `black`) | ⚠️ | ❌ |
+
+⚠️ Named-color detection covers the attribute form (`fill="red"`) and the inline
+style form (`style="fill:red"`). It is not a CSS parser, so a color set inside a
+`<style>` block is not seen at all.
+
+Fragment references are never touched: `url(#fff)`, `href="#mask"` and
+`xlink:href` keep their ids even when an id happens to look like a hex color,
+which is ordinary SVGO output. Rewriting one leaves a live reference pointing at
+nothing while its `id` attribute stays put.
+
+File encoding is preserved rather than imposed: a file that arrived without a BOM
+is written back without one, a file that had one keeps it, and a UTF-16 file is
+skipped with a warning instead of being silently re-encoded as UTF-8.
 
 Anything in the "not rewritten" rows is **reported** by both scripts rather than
 passed over in silence — `detect-colors.ps1` lists it, and `recolor.ps1` warns at

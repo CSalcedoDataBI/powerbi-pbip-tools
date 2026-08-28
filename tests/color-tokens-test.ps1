@@ -50,7 +50,10 @@ try {
         'plain.svg' = '<svg><path fill="#0078D4"/></svg>'
         'alpha.svg' = '<svg><path fill="#0078D480"/><path fill="#0078D4"/></svg>'
         'short.svg' = '<svg><path fill="#FFF"/></svg>'
-        'other.svg' = '<svg><path fill="rgb(0,120,212)"/><path stroke="currentColor"/><path fill="red"/></svg>'
+        'other.svg' = '<svg><path fill="rgb(0,120,212)"/><path stroke="currentColor"/><path style="fill:red"/></svg>'
+        # Ids that look like hex are ordinary SVGO output. Rewriting the reference
+        # while the id attribute stays put leaves the file rendering wrong.
+        'refs.svg'  = '<svg><defs><linearGradient id="fff"/><mask id="0078D4"/></defs><rect fill="url(#fff)" mask="url(#0078D4)"/><use href="#fff"/><path fill="#0078D4"/></svg>'
     }
     foreach ($kv in $fixture.GetEnumerator()) {
         [System.IO.File]::WriteAllText((Join-Path $res $kv.Key), $kv.Value, $utf8NoBom)
@@ -76,8 +79,9 @@ try {
     # --- detect: unsupported notations are reported (#12) ----------------------
     $printed = & $detect -PbipDir $work 6>&1 | Out-String
     Test-Check -Name 'reporta rgb()/currentColor/named como no reescribibles' `
-        -Ok ($printed -match 'Not rewritable' -and $printed -match 'rgb\(\)' -and $printed -match 'currentColor') `
-        -Detail 'seccion "Not rewritable" presente'
+        -Ok ($printed -match 'Not rewritable' -and $printed -match 'rgb\(\)' -and
+             $printed -match 'currentColor' -and $printed -match 'named color') `
+        -Detail 'las tres notaciones listadas, no solo la seccion'
 
     # --- recolor: 8-digit is NOT partially rewritten (#11) ---------------------
     & $recolor -PbipDir $work -From '#0078D4' -To '#DC143C' 6>&1 | Out-Null
@@ -88,6 +92,14 @@ try {
         -Detail $alpha
     Test-Check -Name 'no quedo ningun #DC143C80 corrupto' -Ok ($alpha -notmatch '#DC143C80') `
         -Detail 'sin alfa colgando'
+
+    # --- recolor: fragment references are NOT colors --------------------------
+    $refs = [System.IO.File]::ReadAllText((Join-Path $res 'refs.svg'))
+    Test-Check -Name 'url(#id) y href="#id" sobreviven al recolor' `
+        -Ok ($refs -match 'url\(#fff\)' -and $refs -match 'url\(#0078D4\)' -and $refs -match 'href="#fff"') `
+        -Detail $refs
+    Test-Check -Name 'el fill real del mismo archivo si se reemplaza' `
+        -Ok ($refs -match 'fill="#DC143C"') -Detail 'el color de verdad cambio'
 
     # --- recolor: no BOM is written (#25) --------------------------------------
     $bytes = [System.IO.File]::ReadAllBytes((Join-Path $res 'plain.svg'))
@@ -108,8 +120,11 @@ try {
     $inRoot     = @(Get-ChildItem $backupRoot -Directory -ErrorAction SilentlyContinue)
     Test-Check -Name '-Backup no deja nada dentro del arbol PBIP' -Ok ($insideTree.Count -eq 0) `
         -Detail "carpetas de backup bajo RegisteredResources: $($insideTree.Count)"
-    Test-Check -Name '-Backup escribe en el BackupRoot indicado' -Ok ($inRoot.Count -ge 1) `
-        -Detail "carpetas en el root: $($inRoot.Count)"
+    $copied = @(Get-ChildItem $backupRoot -Recurse -Filter '*.svg' -ErrorAction SilentlyContinue)
+    $originals = @(Get-ChildItem $res -Filter '*.svg')
+    Test-Check -Name '-Backup copia de verdad los SVG, no solo crea la carpeta' `
+        -Ok ($inRoot.Count -ge 1 -and $copied.Count -eq $originals.Count) `
+        -Detail "copiados $($copied.Count) de $($originals.Count) originales"
 
     # --- recolor: warns about what it could not rewrite (#12) ------------------
     $out = & $recolor -PbipDir $work -To '#123456' 6>&1 3>&1 | Out-String

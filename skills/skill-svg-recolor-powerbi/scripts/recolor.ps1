@@ -137,6 +137,13 @@ foreach ($reportDir in $reportDirs) {
     # --- Replace colors ---
     $changed = 0
     foreach ($f in $files) {
+        # A UTF-16 file would come back through ReadAllText and go out as UTF-8,
+        # re-encoding an asset nobody asked to re-encode. Skip it loudly instead.
+        $encodingKind = Get-FileEncodingKind -Path $f.FullName
+        if ($encodingKind -eq 'Utf16') {
+            Write-Warning "  Skipped (UTF-16, would be re-encoded): $($f.Name)"
+            continue
+        }
         $content = [System.IO.File]::ReadAllText($f.FullName)
 
         # Token-wise, never a blind substring replace: each match is a complete
@@ -159,9 +166,11 @@ foreach ($reportDir in $reportDirs) {
             if ($WhatIf) {
                 Write-Host "  [WhatIf] Would update: $($f.Name)"
             } else {
-                # UTF8NoBom, not [System.Text.Encoding]::UTF8: the latter prepends a
-                # BOM, silently changing the encoding of every icon it touches.
-                [System.IO.File]::WriteAllText($f.FullName, $newContent, $script:Utf8NoBom)
+                # Write back the SAME encoding the file arrived in.
+                # [System.Text.Encoding]::UTF8 always prepends a BOM, which is how
+                # every icon this tool touched ended up with one.
+                $encoding = if ($encodingKind -eq 'Utf8Bom') { $script:Utf8WithBom } else { $script:Utf8NoBom }
+                [System.IO.File]::WriteAllText($f.FullName, $newContent, $encoding)
             }
             $changed++
         }
