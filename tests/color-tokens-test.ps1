@@ -56,6 +56,11 @@ try {
         'refs.svg'  = '<svg><defs><linearGradient id="fff"/><mask id="0078D4"/></defs><rect fill="url(#fff)" mask="url(#0078D4)"/><use href="#fff"/><path fill="#0078D4"/></svg>'
         # The same reference written the other legal ways: quoted inside url(),
         # padded with spaces, and with whitespace around the href equals sign.
+        # An entity-quoted href followed by a REAL color: the span must stop at the
+        # attribute, not run on and swallow the color further down the line.
+        'entity.svg'= '<svg><use href=&quot;#fff&quot;/><path fill=&quot;#0078D4&quot;/></svg>'
+        # A file whose only colors are notations this tool cannot rewrite.
+        'onlyother.svg' = '<svg><path fill="rgb(1,2,3)"/><path stroke="currentColor"/></svg>'
         'refs2.svg' = '<svg><rect fill="url(&apos;#fff&apos;)"/><rect fill="url( #0078D4 )"/><use href = "#fff"/><use xlink:href = &apos;#0078D4&apos;/><path fill="#0078D4"/></svg>'
     }
     foreach ($kv in $fixture.GetEnumerator()) {
@@ -108,6 +113,10 @@ try {
     Test-Check -Name 'url() con comillas/espacios y href con espacios tambien sobreviven' `
         -Ok ($refs2 -match "#fff" -and ($refs2 -split '#0078D4').Count -ge 3) -Detail $refs2
 
+    $entity = [System.IO.File]::ReadAllText((Join-Path $res 'entity.svg'))
+    Test-Check -Name 'un href con &quot; no se traga el color siguiente' `
+        -Ok ($entity -match '#DC143C' -and $entity -match '#fff') -Detail $entity
+
     # --- recolor: no BOM is written (#25) --------------------------------------
     $bytes = [System.IO.File]::ReadAllBytes((Join-Path $res 'plain.svg'))
     $hasBom = ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF)
@@ -132,6 +141,20 @@ try {
     Test-Check -Name '-Backup copia de verdad los SVG, no solo crea la carpeta' `
         -Ok ($inRoot.Count -ge 1 -and $copied.Count -eq $originals.Count) `
         -Detail "copiados $($copied.Count) de $($originals.Count) originales"
+
+    # --- recolor: warns even when there is nothing to rewrite (#12) ------------
+    # The case where the warning matters most: every color is a notation this tool
+    # does not handle, so nothing changes and the user needs to know why.
+    $onlyDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-only-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $onlyRes = Join-Path (Join-Path (Join-Path $onlyDir 'X.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $onlyRes -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $onlyRes 'only.svg'),
+        '<svg><path fill="rgb(1,2,3)"/><path stroke="currentColor"/></svg>', $utf8NoBom)
+    $onlyOut = & $recolor -PbipDir $onlyDir -To '#DC143C' *>&1 | Out-String
+    Remove-Item $onlyDir -Recurse -Force -ErrorAction SilentlyContinue
+    Test-Check -Name 'avisa aunque no hubiera nada que reescribir' `
+        -Ok ($onlyOut -match 'NOT rewritten' -and $onlyOut -match 'rgb') `
+        -Detail 'el aviso aparece incluso con 0 cambios'
 
     # --- recolor: warns about what it could not rewrite (#12) ------------------
     $out = & $recolor -PbipDir $work -To '#123456' 6>&1 3>&1 | Out-String

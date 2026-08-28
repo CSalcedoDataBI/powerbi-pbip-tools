@@ -74,6 +74,7 @@ $totalChanged = 0
 $totalFiles = 0
 $processedReports = 0
 $unsupportedSeen = @{}
+$scannedForUnsupported = @{}
 
 foreach ($reportDir in $reportDirs) {
     $svgDir = Join-PbipPath -ReportDir $reportDir.FullName
@@ -106,6 +107,14 @@ foreach ($reportDir in $reportDirs) {
                 $canonical = Get-CanonicalHex -Token $m.Value
                 if (-not $excludeSet.ContainsKey($canonical)) { $sourceSet[$canonical] = $true }
             }
+            # Collected BEFORE the early exit below. A report whose colors are all
+            # rgb() or currentColor has nothing to rewrite - and that is precisely
+            # when the user most needs to be told why nothing happened.
+            foreach ($kv in (Get-UnsupportedNotation -Text $text).GetEnumerator()) {
+                if ($unsupportedSeen.ContainsKey($kv.Key)) { $unsupportedSeen[$kv.Key] += $kv.Value }
+                else { $unsupportedSeen[$kv.Key] = $kv.Value }
+            }
+            $scannedForUnsupported[$f.FullName] = $true
         }
         if ($sourceSet.Count -eq 0) {
             Write-Host "[$($reportDir.Name)] No colors to replace."
@@ -162,9 +171,11 @@ foreach ($reportDir in $reportDirs) {
             }
         }
 
-        foreach ($kv in (Get-UnsupportedNotation -Text $content).GetEnumerator()) {
-            if ($unsupportedSeen.ContainsKey($kv.Key)) { $unsupportedSeen[$kv.Key] += $kv.Value }
-            else { $unsupportedSeen[$kv.Key] = $kv.Value }
+        if (-not $scannedForUnsupported.ContainsKey($f.FullName)) {
+            foreach ($kv in (Get-UnsupportedNotation -Text $content).GetEnumerator()) {
+                if ($unsupportedSeen.ContainsKey($kv.Key)) { $unsupportedSeen[$kv.Key] += $kv.Value }
+                else { $unsupportedSeen[$kv.Key] = $kv.Value }
+            }
         }
 
         if ($content -ne $newContent) {

@@ -25,9 +25,14 @@ $script:HexTokenPattern =
 # these spans is an id, not a color.
 # The quote is optional and may also arrive XML-escaped: inside a double-quoted
 # attribute, url('#a') is often written url(&apos;#a&apos;).
+#
+# The id character classes stop at '&' and whitespace as well as at the quotes.
+# Without that, an entity-quoted href has no closing delimiter the class
+# recognises, so the span runs on past the attribute and can swallow a real
+# color further down the line - excluding it from being rewritten at all.
 $script:FragmentRefPattern =
-    '(?i)(?:url\s*\(\s*(?:["'']|&apos;|&quot;)?\s*#[^)"''\s]+' +
-    '|(?:xlink:)?href\s*=\s*(?:["'']|&apos;|&quot;)\s*#[^"'']*)'
+    '(?i)(?:url\s*\(\s*(?:["'']|&apos;|&quot;)?\s*#[^)"''\s&]+' +
+    '|(?:xlink:)?href\s*=\s*(?:["'']|&apos;|&quot;)\s*#[^"''\s>&]*)'
 
 function Get-ColorTokenMatch {
     <#
