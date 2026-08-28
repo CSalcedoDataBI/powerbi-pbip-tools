@@ -317,8 +317,26 @@ function Get-UnsupportedNotation {
     # is counted as a color left unrewritten, and the closing warning is wrong.
     foreach ($r in [regex]::Matches($paint, $script:StyleBlockPattern)) {
         $css = $r.Groups[1]
-        $masked = (Get-CssValueRange -Css $css.Value).Masked
-        $paint = $paint.Remove($css.Index, $css.Length).Insert($css.Index, $masked)
+        $info = Get-CssValueRange -Css $css.Value
+        # Keep ONLY the declaration values. A selector is not paint, so
+        # 'path[fill=red]{fill:#0078D4}' must not report a named color: nothing
+        # was left unrewritten there.
+        $keepChars = (' ' * $info.Masked.Length).ToCharArray()
+        foreach ($range in $info.Ranges) {
+            for ($k = $range[0]; $k -lt $range[1]; $k++) { $keepChars[$k] = $info.Masked[$k] }
+        }
+        # The property name sits just before its value and the pattern needs it,
+        # so carry back the run of name characters preceding each range.
+        foreach ($range in $info.Ranges) {
+            $k = $range[0] - 1
+            while ($k -ge 0 -and ($info.Masked[$k] -eq ':' -or [char]::IsLetter($info.Masked[$k]) -or
+                                  $info.Masked[$k] -eq '-' -or [char]::IsWhiteSpace($info.Masked[$k]))) {
+                $keepChars[$k] = $info.Masked[$k]
+                if ($info.Masked[$k] -eq ':' -and $k -lt $range[0] - 1) { break }
+                $k--
+            }
+        }
+        $paint = $paint.Remove($css.Index, $css.Length).Insert($css.Index, (-join $keepChars))
     }
 
     $found = @{}

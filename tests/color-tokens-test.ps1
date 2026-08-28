@@ -247,6 +247,24 @@ try {
     Test-Check -Name 'currentColor en un <desc> no cuenta como notacion sin reescribir' `
         -Ok ($prose.Count -eq 0) -Detail "notaciones reportadas: $($prose.Count)"
 
+    # --- unsupported counting is gated on declaration VALUES too ---------------
+    $unsupCases = @(
+        @{ t = '<svg><style>path[fill=red]{fill:#0078D4}</style></svg>'; e = 0 }   # selector, not paint
+        @{ t = '<svg><style>.a{fill:red}</style></svg>';                 e = 1 }
+        @{ t = '<svg><style>.a{fill:rgb(1,2,3)}</style></svg>';          e = 1 }
+        @{ t = '<svg><style>.a{stroke:currentColor}</style></svg>';      e = 1 }
+        @{ t = '<svg><path fill="red"/></svg>';                          e = 1 }
+        @{ t = '<svg><path style="fill:red"/></svg>';                    e = 1 }
+    )
+    $unsupBad = 0
+    foreach ($case in $unsupCases) {
+        $tot = 0
+        foreach ($v in (Get-UnsupportedNotation -Text $case.t).Values) { $tot += $v }
+        if ($tot -ne $case.e) { $unsupBad++ }
+    }
+    Test-Check -Name 'un selector de atributo no cuenta como color con nombre' -Ok ($unsupBad -eq 0) `
+        -Detail "$($unsupCases.Count - $unsupBad)/$($unsupCases.Count) casos"
+
     # --- multi-value -From / -Exclude ------------------------------------------
     # Note these must be called with & so PowerShell passes an ARRAY; 'pwsh -File'
     # hands the script one literal string and the test would prove nothing.
