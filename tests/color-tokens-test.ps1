@@ -381,6 +381,32 @@ try {
     Test-Check -Name 'un archivo de solo BOM no se descarta como no-UTF-8' `
         -Ok ($bomOut -match '2 scanned \(2 found\)') -Detail (($bomOut -split "`n" | Where-Object { $_ -match 'SVGs' }) -join '')
 
+    # --- -Backup is all-or-nothing across reports ------------------------------
+    # A backup that fails on the SECOND report must not leave the first one
+    # already rewritten: that is a half-recolored project plus a failure message.
+    $paDir  = Get-ScopedTempPath -Prefix 'pbip-partial'
+    $paBack = Get-ScopedTempPath -Prefix 'pbip-block'
+    New-Item -ItemType Directory -Force -Path $paBack | Out-Null
+    foreach ($r in 'A.Report', 'B.Report') {
+        $rr = Join-Path (Join-Path (Join-Path $paDir $r) 'StaticResources') 'RegisteredResources'
+        New-Item -ItemType Directory -Force -Path $rr | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $rr 'icon.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    }
+    # Occupy every backup name B could pick for the next 90 seconds, so its
+    # New-Item throws while A's has already succeeded.
+    for ($i = 0; $i -lt 90; $i++) {
+        $stamp = (Get-Date).AddSeconds($i).ToString('yyyyMMdd_HHmmss')
+        New-Item -ItemType File -Force -Path (Join-Path $paBack "pbip-recolor-backup_B.Report_$stamp") | Out-Null
+    }
+    $prevEap2 = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    & $recolor -PbipDir $paDir -To '#DC143C' -Backup -BackupRoot $paBack *>&1 | Out-Null
+    $ErrorActionPreference = $prevEap2
+    $aPath = Join-Path (Join-Path (Join-Path (Join-Path $paDir 'A.Report') 'StaticResources') 'RegisteredResources') 'icon.svg'
+    Test-Check -Name 'si el backup falla en el 2o reporte, el 1o queda intacto' `
+        -Ok ([System.IO.File]::ReadAllText($aPath) -match '#0078D4') `
+        -Detail ([System.IO.File]::ReadAllText($aPath))
+
     # --- a link is not a file this tool owns -----------------------------------
     # Creating a symlink needs Developer Mode or elevation on Windows, so the check
     # reports honestly when it could not run rather than passing by default.

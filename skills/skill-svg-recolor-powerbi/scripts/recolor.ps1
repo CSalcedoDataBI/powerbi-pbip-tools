@@ -87,6 +87,13 @@ $unsupportedSeen = @{}
 $scannedForUnsupported = @{}
 $filesWithUnsupported = @{}
 
+# Two passes on purpose. Everything that can refuse - discovery, encoding,
+# and every requested backup - happens for ALL reports before the first byte is
+# written. Doing the backup inside the write loop meant report A could be
+# recolored and report B's backup then fail, leaving the project half-changed
+# with the run reporting a backup failure.
+$plan = [System.Collections.Generic.List[object]]::new()
+
 foreach ($reportDir in $reportDirs) {
     $svgDir = Join-PbipPath -ReportDir $reportDir.FullName
     if (-not (Test-Path -LiteralPath $svgDir)) {
@@ -173,13 +180,22 @@ foreach ($reportDir in $reportDirs) {
                 Copy-Item -LiteralPath $f.FullName -Destination $backupDir -ErrorAction Stop
             }
         } catch {
-            Write-Error "[$($reportDir.Name)] Backup failed - no files were modified. $($_.Exception.Message)"
+            Write-Error "[$($reportDir.Name)] Backup failed - NOTHING has been modified yet, in any report. $($_.Exception.Message)"
             exit 1
         }
         Write-Host "[$($reportDir.Name)] Backup saved to: $backupDir"
     }
 
-    # --- Replace colors ---
+    $plan.Add(@{ Report = $reportDir; Files = $files; EncodingOf = $encodingOf; SourceSet = $sourceSet })
+}
+
+# ---- Pass 2: nothing below here can refuse; every backup is already on disk --
+foreach ($entry in $plan) {
+    $reportDir = $entry.Report
+    $files     = $entry.Files
+    $encodingOf = $entry.EncodingOf
+    $sourceSet = $entry.SourceSet
+
     $changed = 0
     foreach ($f in $files) {
         $content = [System.IO.File]::ReadAllText($f.FullName)
