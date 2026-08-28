@@ -115,6 +115,17 @@ function Get-CssValueRange {
         if (($c -eq 'u' -or $c -eq 'U') -and $i + 4 -le $n -and
             ((-join $chars[$i..($i + 3)]) -match '(?i)^url\(')) {
             $j = $i + 4
+            while ($j -lt $n -and [char]::IsWhiteSpace($chars[$j])) { $j++ }
+            if ($j -lt $n -and ($chars[$j] -eq [char]0x22 -or $chars[$j] -eq [char]0x27)) {
+                # A quoted URL body may legally contain ')': url("icons/foo)#a")
+                # Scan to the closing QUOTE first, then on to the paren.
+                $q = $chars[$j]
+                $j++
+                while ($j -lt $n -and $chars[$j] -ne $q) {
+                    if ($chars[$j] -eq [char]0x5C -and $j + 1 -lt $n) { $j++ }
+                    $j++
+                }
+            }
             while ($j -lt $n -and $chars[$j] -ne ')') {
                 # An unquoted URL may escape its closing paren: url(foo\)#id)
                 if ($chars[$j] -eq [char]0x5C -and $j + 1 -lt $n) { $j++ }
@@ -300,6 +311,14 @@ function Get-UnsupportedNotation {
     $paint = $Text
     foreach ($r in [regex]::Matches($Text, $script:NonPaintPattern)) {
         $paint = $paint.Remove($r.Index, $r.Length).Insert($r.Index, (' ' * $r.Length))
+    }
+    # Style blocks get the SAME masking hex detection uses. Otherwise 'rgb(' or
+    # 'currentColor' written inside a CSS comment, a CSS string or a url() body
+    # is counted as a color left unrewritten, and the closing warning is wrong.
+    foreach ($r in [regex]::Matches($paint, $script:StyleBlockPattern)) {
+        $css = $r.Groups[1]
+        $masked = (Get-CssValueRange -Css $css.Value).Masked
+        $paint = $paint.Remove($css.Index, $css.Length).Insert($css.Index, $masked)
     }
 
     $found = @{}

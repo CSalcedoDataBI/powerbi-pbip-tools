@@ -52,14 +52,22 @@ if (-not (Test-HexColor -Value $To)) {
     Write-Error "Invalid color format for -To: '$To'. Expected hex, e.g. '#DC143C'."
     exit 1
 }
-foreach ($pair in @(@('From', $From), @('Exclude', $Exclude))) {
-    foreach ($c in $pair[1]) {
-        if (-not (Test-HexColor -Value $c)) {
-            # -Exclude is validated too: one that silently fails to match is a
-            # color the user believed was protected and was not.
-            Write-Error "Invalid color format in -$($pair[0]): '$c'. Expected hex, e.g. '#0078D4'."
-            exit 1
-        }
+# Two plain loops, deliberately not one clever loop over name/value pairs.
+# @('From', $From) does not iterate the way it reads: $c ends up bound to the
+# whole array stringified, so '-From "#0078D4","#FFFFFF"' - the documented way to
+# pass several colors - was rejected as invalid.
+foreach ($c in $From) {
+    if (-not (Test-HexColor -Value $c)) {
+        Write-Error "Invalid color format in -From: '$c'. Expected hex, e.g. '#0078D4'."
+        exit 1
+    }
+}
+# -Exclude is validated too: one that silently fails to match is a color the
+# user believed was protected and was not.
+foreach ($c in $Exclude) {
+    if (-not (Test-HexColor -Value $c)) {
+        Write-Error "Invalid color format in -Exclude: '$c'. Expected hex, e.g. '#FFFFFF'."
+        exit 1
     }
 }
 

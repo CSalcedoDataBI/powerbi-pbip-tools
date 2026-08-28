@@ -174,6 +174,7 @@ try {
     . (Join-Path $scripts 'ColorTokens.ps1')
     $cssCases = @(
         @{ n = 'hex in a content string is text';       t = '<svg><style>.a::before{content:"#fff";fill:#000}</style></svg>';                       e = '#000' }
+        @{ n = 'quoted url() body may contain a paren'; t = '<svg><style>.a{background:url("icons/foo)#fff");fill:#000}</style></svg>';               e = '#000' }
         @{ n = 'hex in a url() fragment is an id';      t = '<svg><style>.a{background-image:url("/s.svg#fff");fill:#000}</style></svg>';           e = '#000' }
         @{ n = 'a brace inside a string is not a brace'; t = '<svg><style>.a::before{content:"}";fill:#fff}</style></svg>';                          e = '#fff' }
         @{ n = 'a semicolon in a data URL is not one';   t = '<svg><style>.a{background:url("data:image/svg+xml;utf8,x");fill:#fff}</style></svg>';  e = '#fff' }
@@ -246,6 +247,33 @@ try {
     Test-Check -Name 'currentColor en un <desc> no cuenta como notacion sin reescribir' `
         -Ok ($prose.Count -eq 0) -Detail "notaciones reportadas: $($prose.Count)"
 
+    # --- multi-value -From / -Exclude ------------------------------------------
+    # Note these must be called with & so PowerShell passes an ARRAY; 'pwsh -File'
+    # hands the script one literal string and the test would prove nothing.
+    $mvDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-mv-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $mvRes = Join-Path (Join-Path (Join-Path $mvDir 'M.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $mvRes -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $mvRes 'a.svg'),
+        '<svg><path fill="#0078D4"/><path fill="#FFFFFF"/><path fill="#123123"/></svg>', $utf8NoBom)
+    & $recolor -PbipDir $mvDir -From '#0078D4', '#FFFFFF' -To '#DC143C' *>&1 | Out-Null
+    $mv = [System.IO.File]::ReadAllText((Join-Path $mvRes 'a.svg'))
+    Test-Check -Name '-From con varios colores los aplica todos' `
+        -Ok ((([regex]::Matches($mv, [regex]::Escape('#DC143C'))).Count -eq 2) -and ($mv -match '#123123')) `
+        -Detail $mv
+
+    & $recolor -PbipDir $mvDir -To '#00FF7F' -Exclude '#DC143C', '#123123' *>&1 | Out-Null
+    $mvEx = [System.IO.File]::ReadAllText((Join-Path $mvRes 'a.svg'))
+    Test-Check -Name '-Exclude con varios colores los protege todos' -Ok ($mvEx -eq $mv) -Detail $mvEx
+
+    # try/catch because $ErrorActionPreference is Stop here, and the script signals
+    # a bad argument with Write-Error - which the caller then sees as terminating.
+    $mvErr = ''
+    try { $mvErr = (& $recolor -PbipDir $mvDir -From '#DC143C', 'basura' -To '#00FF7F' *>&1 | Out-String) }
+    catch { $mvErr = $_.Exception.Message }
+    Remove-Item $mvDir -Recurse -Force -ErrorAction SilentlyContinue
+    Test-Check -Name 'un valor invalido se rechaza nombrandolo a el, no al array' `
+        -Ok ($mvErr -match "'basura'" -and $mvErr -notmatch "'#DC143C','basura'") -Detail $mvErr.Trim()
+
     # --- keywords and functions are not named colors ---------------------------
     $kw = @('<path style="fill:var(--brand)"/>', '<path fill="context-fill"/>',
             '<path fill="initial"/>', '<path stroke="unset"/>')
@@ -255,6 +283,11 @@ try {
     Test-Check -Name 'var()/context-fill/initial/unset no se reportan como color con nombre' `
         -Ok ($kwFalse -eq 0 -and $realNamed -eq 1) `
         -Detail "falsos positivos: $kwFalse / 'red' sigue detectado: $realNamed"
+
+    # --- unsupported-notation counting uses the same CSS masking ---------------
+    $cssStr = (Get-UnsupportedNotation -Text '<svg><style>.a{content:"rgb(";fill:#111}</style></svg>')
+    Test-Check -Name 'rgb( dentro de un string CSS no cuenta como notacion' -Ok ($cssStr.Count -eq 0) `
+        -Detail "notaciones reportadas: $($cssStr.Count)"
 
     # --- files that are not UTF-8 are skipped, not mangled ---------------------
     # ReadAllText would decode a latin-1 file with replacement characters and the
