@@ -34,10 +34,10 @@ jobs:
     timeout-minutes: 15
     # A nivel de job, no de workflow: si manana se anade otro job, no hereda el OIDC.
     permissions:
+      # pull-requests: write basta tambien para el comentario de track_progress: la API
+      # de GitHub acepta Issues:write O Pull requests:write para comentar en un PR, y el
+      # ejemplo oficial pr-review-comprehensive.yml de la action no pide issues:write.
       pull-requests: write
-      # track_progress crea un comentario de seguimiento; en GitHub un comentario de
-      # PR es un comentario de issue, asi que necesita este scope ademas del anterior.
-      issues: write
       contents: read
       # claude-code-action pide un token OIDC a GitHub para autenticarse; sin este
       # permiso falla con "Could not fetch an OIDC token" antes de leer el diff.
