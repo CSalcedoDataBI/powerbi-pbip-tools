@@ -132,9 +132,10 @@ function Get-CssValueRange {
 
     # --- Pass 2: one walk recording where a declaration value is open -------
     $ranges = @()
-    $depth = 0
+    $blocks = New-Object System.Collections.Generic.Stack[bool]   # $true = at-rule block
     $valueStart = -1
     $valueBrace = 0     # braces opened INSIDE the value that is currently open
+    $preludeStart = 0   # where the current selector / at-rule prelude began
     for ($i = 0; $i -lt $n; $i++) {
         $c = $masked[$i]
         if ($c -eq '{') {
@@ -142,20 +143,32 @@ function Get-CssValueRange {
             #   :root { --palette: {#ABCDEF}; fill: #000 }
             # Treating that brace as a rule boundary would close the declaration
             # and hide the color inside it.
-            if ($valueStart -ge 0) { $valueBrace++ } else { $depth++ }
+            if ($valueStart -ge 0) { $valueBrace++ }
+            else {
+                # Is this an at-rule block? '@media(...){ a:hover #ABC { } }' has
+                # depth 1 while still in SELECTOR territory, so depth alone says
+                # yes to the ':' of ':hover' and invents a declaration value.
+                $prelude = $masked.Substring($preludeStart, $i - $preludeStart).TrimStart()
+                $blocks.Push($prelude.StartsWith('@'))
+                $preludeStart = $i + 1
+            }
         }
         elseif ($c -eq '}') {
             if ($valueBrace -gt 0) { $valueBrace-- }
-            elseif ($valueStart -ge 0) { $ranges += , @($valueStart, $i); $valueStart = -1; $depth-- }
-            else { $depth-- }
+            else {
+                if ($valueStart -ge 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
+                if ($blocks.Count -gt 0) { [void]$blocks.Pop() }
+                $preludeStart = $i + 1
+            }
         }
         elseif ($c -eq ';') {
             if ($valueStart -ge 0 -and $valueBrace -eq 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
+            if ($valueStart -lt 0) { $preludeStart = $i + 1 }
         }
-        elseif ($c -eq ':' -and $depth -ge 1 -and $valueStart -lt 0) {
-            # Declarations only exist inside a block. Depth 0 is selector
-            # territory, which is what keeps 'a:hover #ABCDEF{...}' a selector
-            # even though scanning back would find the colon of ':hover'.
+        elseif ($c -eq ':' -and $valueStart -lt 0 -and
+                $blocks.Count -gt 0 -and -not $blocks.Peek()) {
+            # Only inside a declaration block, never inside an at-rule block and
+            # never at depth 0 - both of those are selector territory.
             $valueStart = $i + 1
         }
     }
@@ -176,7 +189,11 @@ function Get-ColorTokenMatch {
     # Each style block is masked and scanned ONCE, not re-scanned per token.
     $styleInfo = @()
     foreach ($r in [regex]::Matches($Text, $script:StyleBlockPattern)) {
-        $styleInfo += , @{ Start = $r.Index; End = ($r.Index + $r.Length); Info = (Get-CssValueRange -Css $r.Value) }
+        # Group 1 is the CSS itself. Passing $r.Value would include the '<style ...>'
+        # tag, and then the first rule's prelude starts with '<' instead of '@' -
+        # which is exactly how an at-rule stops being recognised as one.
+        $css = $r.Groups[1]
+        $styleInfo += , @{ Start = $css.Index; End = ($css.Index + $css.Length); Info = (Get-CssValueRange -Css $css.Value) }
     }
 
     $refSpans = @()
@@ -267,9 +284,17 @@ function Get-UnsupportedNotation {
     #>
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
 
+    # Prose is masked out first, exactly as it is for hex tokens. Otherwise the
+    # word 'currentColor' in a <desc> makes the script warn that colors were left
+    # unrewritten when none were.
+    $paint = $Text
+    foreach ($r in [regex]::Matches($Text, $script:NonPaintPattern)) {
+        $paint = $paint.Remove($r.Index, $r.Length).Insert($r.Index, (' ' * $r.Length))
+    }
+
     $found = @{}
     foreach ($name in $script:UnsupportedPatterns.Keys) {
-        $count = ([regex]::Matches($Text, $script:UnsupportedPatterns[$name])).Count
+        $count = ([regex]::Matches($paint, $script:UnsupportedPatterns[$name])).Count
         if ($count -gt 0) { $found[$name] = $count }
     }
     return $found
@@ -301,10 +326,11 @@ function Get-FileEncodingKind {
     #>
     param([Parameter(Mandatory)][string]$Path)
 
-    $sample = [byte[]]::new(512)
-    $stream = [System.IO.File]::OpenRead($Path)
-    try { $read = $stream.Read($sample, 0, 512) } finally { $stream.Dispose() }
-    if ($read -lt 512) { $sample = $sample[0..([Math]::Max($read - 1, 0))] }
+    # The WHOLE file, not a sample. Icon SVGs are small, and a 512-byte window
+    # both misses an invalid byte at offset 600 and can cut a codepoint in half,
+    # which would fail a perfectly good UTF-8 file.
+    $sample = [System.IO.File]::ReadAllBytes($Path)
+    $read = $sample.Length
     $head = $sample
 
     if ($read -ge 3 -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF) { return 'Utf8Bom' }
@@ -314,11 +340,12 @@ function Get-FileEncodingKind {
     # UTF-8 and the file goes back out re-encoded. Two cheap signals: interleaved
     # NUL bytes, which ASCII-range UTF-16 is full of, and the XML declaration.
     if ($sample.Length -ge 4) {
+        $probe = [Math]::Min($sample.Length, 512)
         $nulls = 0
-        foreach ($b in $sample) { if ($b -eq 0) { $nulls++ } }
-        if (($nulls / $sample.Length) -gt 0.2) { return 'Utf16' }
+        for ($b = 0; $b -lt $probe; $b++) { if ($sample[$b] -eq 0) { $nulls++ } }
+        if (($nulls / $probe) -gt 0.2) { return 'Utf16' }
     }
-    $ascii = [System.Text.Encoding]::ASCII.GetString($sample)
+    $ascii = [System.Text.Encoding]::ASCII.GetString($sample, 0, [Math]::Min($sample.Length, 512))
     if ($ascii -match '(?i)<\?xml[^>]*encoding\s*=\s*["'']utf-16') { return 'Utf16' }
 
     # An XML declaration naming anything other than UTF-8 means ReadAllText would

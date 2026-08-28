@@ -163,6 +163,10 @@ try {
         @{ n = 'a brace inside a string is not a brace'; t = '<svg><style>.a::before{content:"}";fill:#fff}</style></svg>';                          e = '#fff' }
         @{ n = 'a semicolon in a data URL is not one';   t = '<svg><style>.a{background:url("data:image/svg+xml;utf8,x");fill:#fff}</style></svg>';  e = '#fff' }
         @{ n = 'selector vs value in one rule';          t = '<svg><style>#fff:hover{fill:#000}</style></svg>';                                      e = '#000' }
+        @{ n = 'at-rule block is selector territory'; t = '<svg><style>@media (min-width:1px){ a:hover #ABCDEF { fill:#000 } }</style></svg>';          e = '#000' }
+        @{ n = 'nested at-rules';                    t = '<svg><style>@supports (x:y){@media (min-width:1px){ #FEDCBA:focus{fill:#111} }}</style></svg>'; e = '#111' }
+        @{ n = 'at-rule without a block';            t = '<svg><style>@import url(a.css);.a{fill:#111}</style></svg>';                                 e = '#111' }
+        @{ n = 'two separate style blocks';          t = '<svg><style>.a{fill:#111}</style><style>#ABCDEF:hover{fill:#222}</style></svg>';             e = '#111,#222' }
         @{ n = 'escaped paren in an unquoted url()'; t = '<svg><style>.x{fill:url(foo\)#ABCDEF);stroke:#000}</style></svg>';                         e = '#000' }
         @{ n = 'custom property with a block value'; t = '<svg><style>:root{--palette: {#ABCDEF};fill:#000}</style></svg>';                          e = '#ABCDEF,#000' }
         @{ n = 'XML comment is prose';               t = '<svg><!-- brand #0078D4 --><path fill="#111"/></svg>';                                     e = '#111' }
@@ -218,6 +222,12 @@ try {
     Test-Check -Name 'el CSS comentado no se toca' `
         -Ok ($sel -match '/\* commented: #0078D4 and \.old\{fill:#0078D4\} \*/') `
         -Detail 'el comentario conserva sus dos colores intactos'
+
+    # --- unsupported-notation warnings must ignore prose too --------------------
+    # 'currentColor' written in a <desc> is documentation, not a color left behind.
+    $prose = (Get-UnsupportedNotation -Text '<svg><desc>usa currentColor y rgb(1,2,3)</desc><path fill="#111"/></svg>')
+    Test-Check -Name 'currentColor en un <desc> no cuenta como notacion sin reescribir' `
+        -Ok ($prose.Count -eq 0) -Detail "notaciones reportadas: $($prose.Count)"
 
     # --- files that are not UTF-8 are skipped, not mangled ---------------------
     # ReadAllText would decode a latin-1 file with replacement characters and the
