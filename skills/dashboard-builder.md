@@ -19,6 +19,9 @@ MCP_CONNECTION  : Data Source=localhost:PORT;Application Name=MCP-PBIModeling
 OUTPUT_BASE     : <your output folder, e.g. ~/dashboards>
 TEMPLATE_PATH   : tools/dashboard/template.html
 DEFAULT_YEAR    : 2025
+AVG_UNITS_PER_TX: 36.8   ← average units per transaction; query with:
+                           EVALUATE ROW("K", [Average Quantity])
+                           then update CONFIG.avgUnitsPerTx in the template.
 ```
 
 To find your Power BI port:
@@ -210,13 +213,13 @@ The template computes these from MS, MM, MQ — no separate queries needed:
 | Total Cost | `Sales - Margin` per month |
 | Cost % | `Cost / Sales × 100` per month |
 | Margin % | `Margin / Sales × 100` per month |
-| Average Sales | `Sales × 36.8 / Qty` per month |
-| Average Cost | `Cost × 36.8 / Qty` per month |
+| Average Sales | `Sales × CONFIG.avgUnitsPerTx / Qty` per month |
+| Average Cost | `Cost × CONFIG.avgUnitsPerTx / Qty` per month |
 | Revenue / Unit | `Sales / Qty` per month |
 | Margin / Unit | `Margin / Qty` per month |
 | MoM Growth % | `(Sales[m] - Sales[m-1]) / Sales[m-1] × 100` |
 
-The constant `36.8` is the average units per transaction — update in the template if your model differs.
+The constant `CONFIG.avgUnitsPerTx` is the average units per transaction — update it in the template's CONFIG block if your model differs.
 Query with: `EVALUATE ROW("AvgQty", [Average Quantity])`
 
 ---

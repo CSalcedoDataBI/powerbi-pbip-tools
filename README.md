@@ -48,8 +48,11 @@ flowchart LR
 # Detect all colors in your project
 .\skills\skill-svg-recolor-powerbi\scripts\detect-colors.ps1 -PbipDir "C:\MyProject"
 
-# Change all blue icons to red
-.\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir "C:\MyProject" -From "#0078D4" -To "#DC143C"
+# Preview changes without modifying anything
+.\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir "C:\MyProject" -To "#DC143C" -WhatIf
+
+# Change all blue icons to red (with backup)
+.\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir "C:\MyProject" -From "#0078D4" -To "#DC143C" -Backup
 ```
 
 ---
@@ -146,7 +149,8 @@ git sparse-checkout set commands skills/dashboard-builder.md tools/dashboard
    ```powershell
    start examples/Demo/Demo.pbip
    .\skills\skill-svg-recolor-powerbi\scripts\detect-colors.ps1 -PbipDir ".\examples\Demo"
-   .\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir ".\examples\Demo" -From "#0078D4" -To "#DC143C"
+   .\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir ".\examples\Demo" -To "#DC143C" -WhatIf
+   .\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir ".\examples\Demo" -From "#0078D4" -To "#DC143C" -Backup
    ```
 
 ---

@@ -26,26 +26,51 @@ First, see what colors are currently in your project:
 
 **Output example:**
 ```text
-Carpeta: C:\MyProject\MyReport.Report\StaticResources\RegisteredResources
-142 SVGs escaneados
-Colores encontrados: 3
-  #003893  (62 archivos)
-  #CE1126  (61 archivos)
-  #FCD116  (61 archivos)
+Report : MyReport.Report
+Folder : C:\MyProject\MyReport.Report\StaticResources\RegisteredResources
+SVGs   : 142 scanned
+Colors : 3 unique hex colors found
+
+  #003893  (62 files)
+  #CE1126  (61 files)
+  #FCD116  (61 files)
 ```
 
-### Step 2: Change Colors
+### Step 2: Preview Changes (Dry Run)
 
-Now replace all colors with red:
+Before modifying anything, preview which files would be updated:
 
 ```powershell
-.\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir "C:\MyProject" -To "#FF0000"
+.\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 -PbipDir "C:\MyProject" -To "#FF0000" -WhatIf
 ```
 
 **Output:**
 ```text
-Auto-detectados: #003893, #CE1126, #FCD116
-142/142 SVGs actualizados (-> #FF0000)
+[MyReport.Report] Auto-detected: #003893, #CE1126, #FCD116
+  [WhatIf] Would update: icon_arrow.svg
+  [WhatIf] Would update: icon_chart.svg
+  ...
+[WhatIf] Total: 142/142 SVGs would be modified. No files were changed.
+```
+
+### Step 3: Change Colors
+
+Run without `-WhatIf` to apply. Add `-Backup` to save originals first:
+
+```powershell
+.\skills\skill-svg-recolor-powerbi\scripts\recolor.ps1 `
+  -PbipDir "C:\MyProject" `
+  -To "#FF0000" `
+  -Backup
+```
+
+**Output:**
+```text
+[MyReport.Report] Auto-detected: #003893, #CE1126, #FCD116
+[MyReport.Report] Backup saved to: ...RegisteredResources\_backup_20250115_143022
+[MyReport.Report] Updated 142/142 SVGs (-> #FF0000)
+
+Done. Total: 142/142 SVGs updated (-> #FF0000)
 ```
 
 Done! Open your `.pbip` file in Power BI Desktop to see the changes.
@@ -85,14 +110,16 @@ Done! Open your `.pbip` file in Power BI Desktop to see the changes.
 | Parameter  | Required | Description                                                                     |
 | :--------- | :------: | :------------------------------------------------------------------------------ |
 | `-PbipDir` |    ✅    | Root folder of the PBIP project (where `.pbip` file is)                         |
-| `-To`      |    ✅    | Target hex color (e.g., `#FF0000`)                                              |
+| `-To`      |    ✅    | Target hex color in `#RRGGBB` format (e.g., `#FF0000`)                          |
 | `-From`    |    ❌    | Array of hex colors to replace. If omitted, replaces **all** colors            |
 | `-Exclude` |    ❌    | Array of hex colors to preserve (not modify)                                    |
+| `-Backup`  |    ❌    | Save original SVGs to a timestamped `_backup_` subfolder before modifying       |
+| `-WhatIf`  |    ❌    | Preview which files would change without modifying anything                     |
 
 ## ⚠️ Important Notes
 
-> [!WARNING]
-> This skill modifies SVG files **in-place**. No automatic backup is created.
+> [!TIP]
+> Use `-WhatIf` first to confirm the expected changes, then re-run with `-Backup` to save originals before committing.
 
 > [!TIP]
 > Always commit your PBIP project to Git before running the skill, so you can easily revert if needed.

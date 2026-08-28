@@ -101,6 +101,54 @@ Replace `[INDUSTRY]` with the industry detected in Phase 1.
 
 **Expected KPIs**: On-Time Delivery Rate, Order Fulfillment Rate, Inventory Accuracy, Freight Cost per Unit, Warehouse Capacity Utilization.
 
+### Energy / Utilities
+
+```
+"Energy utilities KPIs analytics reporting"
+"Power generation data dictionary standard"
+"Energy consumption analytics Power BI"
+"Renewable energy performance metrics"
+"Utility billing analytics DAX"
+```
+
+**Expected KPIs**: Energy Production (MWh), Capacity Factor %, System Average Interruption Duration (SAIDI), Customer Satisfaction Score, Revenue per kWh, Distribution Loss Rate.
+
+### Insurance
+
+```
+"Insurance analytics KPIs reporting"
+"Claims management data dictionary"
+"Loss ratio analysis Power BI DAX"
+"Insurance underwriting metrics"
+"Actuarial KPIs dashboard"
+```
+
+**Expected KPIs**: Loss Ratio, Combined Ratio, Claims Frequency, Average Claim Severity, Premiums Written, Customer Retention Rate, Expense Ratio.
+
+### Telecommunications
+
+```
+"Telecom KPIs analytics churn reporting"
+"Telecommunications data dictionary standard"
+"ARPU ARPA analysis Power BI DAX"
+"Network performance metrics dashboard"
+"Mobile subscriber analytics"
+```
+
+**Expected KPIs**: ARPU (Average Revenue per User), Churn Rate, Customer Acquisition Cost, Network Uptime %, Data Usage per Subscriber, NPS (Net Promoter Score), Subscriber Growth Rate.
+
+### Government / Public Sector
+
+```
+"Government public sector KPIs analytics"
+"Public administration data dictionary"
+"Budget execution analysis Power BI"
+"Government performance metrics reporting"
+"Public services efficiency dashboard"
+```
+
+**Expected KPIs**: Budget Execution Rate, Cost per Service Unit, Citizen Satisfaction Index, Service Request Resolution Rate, Program Beneficiary Count, Audit Compliance Rate.
+
 ---
 
 ## Enrichment with Internal Documents

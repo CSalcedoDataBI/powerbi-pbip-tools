@@ -2,57 +2,140 @@ param (
     [Parameter(Mandatory)][string]$PbipDir,
     [Parameter(Mandatory)][string]$To,
     [string[]]$From,
-    [string[]]$Exclude
+    [string[]]$Exclude,
+    [switch]$Backup,
+    [switch]$WhatIf
 )
 
-# --- Locate RegisteredResources ---
-$reportDir = Get-ChildItem $PbipDir -Filter "*.Report" -Directory | Select-Object -First 1
-if (-not $reportDir) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
+# --- Validate target color format ---
+if ($To -notmatch '^#[0-9A-Fa-f]{6}$') {
+    Write-Error "Invalid color format for -To: '$To'. Expected 6-digit hex, e.g. '#DC143C'."
+    exit 1
+}
 
-$svgDir = Join-Path $reportDir.FullName "StaticResources\RegisteredResources"
-if (-not (Test-Path $svgDir)) { Write-Error "Path not found: $svgDir"; exit 1 }
-
-$files = Get-ChildItem $svgDir -Filter "*.svg"
-$toUpper = $To.ToUpper()
-
-# --- Build set of colors to exclude ---
-$excludeSet = @{}
-if ($Exclude) { foreach ($e in $Exclude) { $excludeSet[$e.ToUpper()] = $true } }
-$excludeSet[$toUpper] = $true   # never replace the target color itself
-
-# --- Determine source colors ---
-if ($From -and $From.Count -gt 0) {
-    $sourceColors = $From | ForEach-Object { $_.ToUpper() } | Where-Object { -not $excludeSet.ContainsKey($_) }
-} else {
-    $regex = [regex]::new('#[0-9A-Fa-f]{6}')
-    $detected = @{}
-    foreach ($f in $files) {
-        $text = [System.IO.File]::ReadAllText($f.FullName)
-        foreach ($m in $regex.Matches($text)) {
-            $c = $m.Value.ToUpper()
-            if (-not $excludeSet.ContainsKey($c)) { $detected[$c] = $true }
+# --- Validate source colors format (if provided) ---
+if ($From) {
+    foreach ($c in $From) {
+        if ($c -notmatch '^#[0-9A-Fa-f]{6}$') {
+            Write-Error "Invalid color format in -From: '$c'. Expected 6-digit hex, e.g. '#0078D4'."
+            exit 1
         }
     }
-    $sourceColors = $detected.Keys
-    if ($sourceColors.Count -eq 0) {
-        Write-Host "No hay colores para reemplazar."
-        exit 0
-    }
-    Write-Host "Auto-detectados: $($sourceColors -join ', ')"
 }
 
-# --- Replace colors ---
-$changed = 0
-foreach ($f in $files) {
-    $content2 = [System.IO.File]::ReadAllText($f.FullName)
-    $newContent = $content2
-    foreach ($color in $sourceColors) {
-        $newContent = $newContent -ireplace [regex]::Escape($color), $To
-    }
-    if ($content2 -ne $newContent) {
-        [System.IO.File]::WriteAllText($f.FullName, $newContent, [System.Text.Encoding]::UTF8)
-        $changed++
+# --- Validate excluded colors format (if provided) ---
+# Same strict check as -To/-From: an -Exclude that silently fails to match is a
+# color the user believed was protected and was not.
+if ($Exclude) {
+    foreach ($c in $Exclude) {
+        if ($c -notmatch '^#[0-9A-Fa-f]{6}$') {
+            Write-Error "Invalid color format in -Exclude: '$c'. Expected 6-digit hex, e.g. '#FFFFFF'."
+            exit 1
+        }
     }
 }
 
-Write-Host "$changed/$($files.Count) SVGs actualizados (-> $To)"
+# --- Locate all .Report folders (supports multiple reports in one project) ---
+$reportDirs = Get-ChildItem $PbipDir -Filter "*.Report" -Directory
+if (-not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
+
+$toUpper = $To.ToUpper()
+$totalChanged = 0
+$totalFiles = 0
+$processedReports = 0
+
+foreach ($reportDir in $reportDirs) {
+    $svgDir = Join-Path $reportDir.FullName "StaticResources\RegisteredResources"
+    if (-not (Test-Path $svgDir)) {
+        Write-Warning "RegisteredResources not found in: $($reportDir.FullName) - skipping."
+        continue
+    }
+
+    $processedReports++
+    $files = Get-ChildItem $svgDir -Filter "*.svg"
+    $totalFiles += $files.Count
+
+    # --- Build set of colors to exclude ---
+    $excludeSet = @{}
+    if ($Exclude) { foreach ($e in $Exclude) { $excludeSet[$e.ToUpper()] = $true } }
+    $excludeSet[$toUpper] = $true   # never replace the target color itself
+
+    # --- Determine source colors ---
+    $hexRegex = [regex]::new('#[0-9A-Fa-f]{6}')
+    if ($From -and $From.Count -gt 0) {
+        $sourceColors = $From | ForEach-Object { $_.ToUpper() } | Where-Object { -not $excludeSet.ContainsKey($_) }
+    } else {
+        $detected = @{}
+        foreach ($f in $files) {
+            $text = [System.IO.File]::ReadAllText($f.FullName)
+            foreach ($m in $hexRegex.Matches($text)) {
+                $c = $m.Value.ToUpper()
+                if (-not $excludeSet.ContainsKey($c)) { $detected[$c] = $true }
+            }
+        }
+        $sourceColors = $detected.Keys
+        if ($sourceColors.Count -eq 0) {
+            Write-Host "[$($reportDir.Name)] No colors to replace."
+            continue
+        }
+        Write-Host "[$($reportDir.Name)] Auto-detected: $($sourceColors -join ', ')"
+    }
+
+    # --- Optional backup ---
+    if ($Backup -and -not $WhatIf) {
+        $backupDir = Join-Path $svgDir "_backup_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        # Fatal on purpose. This script rewrites the user's files in place, and
+        # New-Item / Copy-Item only raise non-terminating errors by default: a
+        # backup that quietly failed would let the loop below overwrite the
+        # originals anyway. That is worse than having no -Backup at all, because
+        # the user asked for a net and would proceed believing they had one.
+        try {
+            New-Item -ItemType Directory -Path $backupDir -ErrorAction Stop | Out-Null
+            foreach ($f in $files) {
+                Copy-Item $f.FullName -Destination $backupDir -ErrorAction Stop
+            }
+        } catch {
+            Write-Error "[$($reportDir.Name)] Backup failed - no files were modified. $($_.Exception.Message)"
+            exit 1
+        }
+        Write-Host "[$($reportDir.Name)] Backup saved to: $backupDir"
+    }
+
+    # --- Replace colors ---
+    $changed = 0
+    foreach ($f in $files) {
+        $content = [System.IO.File]::ReadAllText($f.FullName)
+        $newContent = $content
+        foreach ($color in $sourceColors) {
+            $newContent = $newContent -ireplace [regex]::Escape($color), $To
+        }
+        if ($content -ne $newContent) {
+            if ($WhatIf) {
+                Write-Host "  [WhatIf] Would update: $($f.Name)"
+            } else {
+                [System.IO.File]::WriteAllText($f.FullName, $newContent, [System.Text.Encoding]::UTF8)
+            }
+            $changed++
+        }
+    }
+    $totalChanged += $changed
+
+    $action = if ($WhatIf) { "Would update" } else { "Updated" }
+    Write-Host "[$($reportDir.Name)] $action $changed/$($files.Count) SVGs (-> $To)"
+}
+
+# Every .Report was skipped for lack of RegisteredResources: nothing was even
+# looked at. Exiting 0 with "0/0 SVGs updated" reads as success to a human and
+# to any script calling this one.
+if ($processedReports -eq 0) {
+    Write-Error "No RegisteredResources folder found in any .Report under: $PbipDir"
+    exit 1
+}
+
+if ($WhatIf) {
+    Write-Host ""
+    Write-Host "[WhatIf] Total: $totalChanged/$totalFiles SVGs would be modified. No files were changed."
+} else {
+    Write-Host ""
+    Write-Host "Done. Total: $totalChanged/$totalFiles SVGs updated (-> $To)"
+}

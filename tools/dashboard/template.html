@@ -151,6 +151,47 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .footer{border-top:1px solid var(--bor);padding-top:11px;margin-top:4px;font-size:10.5px;color:var(--tx3);display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px}
 .footer a{color:var(--tx3);text-decoration:none;font-weight:500}
 .footer a:hover{color:var(--accent)}
+
+/* == DARK MODE ==================================================
+   Va al FINAL a proposito: una media query no anade especificidad, asi que
+   con las reglas base despues, estas ganaban por orden de aparicion y el
+   modo oscuro solo aplicaba las variables de :root - fondo oscuro con la
+   topbar y las tarjetas claras encima. */
+@media(prefers-color-scheme:dark){
+  :root{
+    --bg:#111110; --sur:#1C1C1A; --sur2:#242422;
+    --bor:rgba(255,255,255,0.08); --bor2:rgba(255,255,255,0.14);
+    --tx:#F0EFED; --tx2:#A8A8A2; --tx3:#6A6A64;
+    --sh:0 1px 3px rgba(0,0,0,.3),0 3px 14px rgba(0,0,0,.25);
+  }
+  .topbar{background:linear-gradient(135deg,#0d1520 0%,#070d14 100%)}
+  .ypill{border-color:rgba(255,255,255,.14);background:rgba(255,255,255,.05)}
+  .ypill:hover{background:rgba(255,255,255,.1)}
+  .ypill.active{background:#E0E0DA;color:#0d1520}
+  .kcard.blue   {--k-bg:#1e3a5f;--k-acc:#60A5FA}
+  .kcard.green  {--k-bg:#14401f;--k-acc:#4ADE80}
+  .kcard.rose   {--k-bg:#4a1020;--k-acc:#FB7185}
+  .kcard.violet {--k-bg:#2e1a5a;--k-acc:#A78BFA}
+  .kcard.amber  {--k-bg:#3d2e00;--k-acc:#FCD34D}
+  .kcard.teal   {--k-bg:#0d3530;--k-acc:#2DD4BF}
+  .kcard.indigo {--k-bg:#1e2060;--k-acc:#818CF8}
+  .kcard.pink   {--k-bg:#3d1030;--k-acc:#F472B6}
+  .dkcard.blue  {--dk-bg:#1e3a5f;--dk-acc:#60A5FA}
+  .dkcard.green {--dk-bg:#14401f;--dk-acc:#4ADE80}
+  .dkcard.rose  {--dk-bg:#4a1020;--dk-acc:#FB7185}
+  .dkcard.violet{--dk-bg:#2e1a5a;--dk-acc:#A78BFA}
+  .dkcard.amber {--dk-bg:#3d2e00;--dk-acc:#FCD34D}
+  .k-chip.good{background:rgba(20,64,31,.6);color:#4ADE80}
+  .k-chip.bad {background:rgba(74,16,32,.6);color:#FB7185}
+  .dk-chip.up{background:rgba(20,64,31,.6);color:#4ADE80}
+  .dk-chip.dn{background:rgba(74,16,32,.6);color:#FB7185}
+  .mbadge.cy{background:#1e3a5f;color:#93C5FD;border-color:#1e3a5f}
+  .mbadge.py{background:var(--sur2);color:var(--tx2)}
+  .mbadge.pos{background:rgba(20,64,31,.5);color:#4ADE80;border-color:#166534}
+  .mbadge.neg{background:rgba(74,16,32,.5);color:#FB7185;border-color:#9F1239}
+  .metric-pill{background:#1e3a5f;border-color:#3B82F6;color:#93C5FD}
+  .itabs{background:rgba(28,28,26,.8)}
+}
 </style>
 </head>
 <body>
@@ -174,7 +215,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <div class="metric-pill" id="metricPill">
     <span>⚡ Viewing:</span>
     <strong id="metricPillName">Sales Amount</strong>
-    <button class="back-btn" id="backBtn">← Volver</button>
+    <button class="back-btn" id="backBtn">← Back</button>
   </div>
 </div>
 
@@ -214,25 +255,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <span class="mbadge pos" id="yoyBadge">—</span>
           </div>
         </div>
-        <div class="mc-sub">Comparación mensual · <span style="color:#27AE60">■</span> CY supera PY · <span style="color:#E53935">■</span> CY por debajo de PY</div>
+        <div class="mc-sub">Monthly comparison · <span style="color:#27AE60">■</span> CY above PY · <span style="color:#E53935">■</span> CY below PY</div>
         <div style="position:relative;height:270px"><canvas id="mainLineChart"></canvas></div>
       </div>
       <div class="side-card">
-        <h3 id="sideCatTitle">Desglose por Categoría</h3>
-        <div class="side-sub" id="sideCatSub">Participación en ventas 2025</div>
+        <h3 id="sideCatTitle">Category Breakdown</h3>
+        <div class="side-sub" id="sideCatSub">Sales share 2025</div>
         <div style="position:relative;height:265px"><canvas id="catSideChart"></canvas></div>
       </div>
     </div>
 
     <div class="dash-sec">
       <div class="chart-card">
-        <h3 id="countryTitle">Ventas por País</h3>
-        <div class="cc-sub" id="countrySub">Top 8 países · $M</div>
+        <h3 id="countryTitle">Sales by Country</h3>
+        <div class="cc-sub" id="countrySub">Top 8 countries · $M</div>
         <div style="position:relative;height:215px"><canvas id="countryChart"></canvas></div>
       </div>
       <div class="chart-card">
-        <h3 id="annualTitle">Evolución Anual</h3>
-        <div class="cc-sub" id="annualSub">Año seleccionado resaltado</div>
+        <h3 id="annualTitle">Annual Evolution</h3>
+        <div class="cc-sub" id="annualSub">Selected year highlighted</div>
         <div style="position:relative;height:215px"><canvas id="annualChart"></canvas></div>
       </div>
     </div>
@@ -261,7 +302,11 @@ const CONFIG={
   author:     'Your Name',                    /* PLACEHOLDER */
   website:    'https://your-site.com',        /* PLACEHOLDER */
   defaultYear: 2025,                          /* PLACEHOLDER: pre-selected year */
-  years:      [2025]                          /* PLACEHOLDER: all available years e.g. [2018,2019,...,2025] */
+  years:      [2025],                         /* PLACEHOLDER: all available years e.g. [2018,2019,...,2025] */
+  avgUnitsPerTx: 36.8                         /* PLACEHOLDER: average units per transaction in your model.
+                                                  Used to scale avg_sales and avg_cost metrics.
+                                                  Query your model: EVALUATE ROW("K", [Average Quantity])
+                                                  then replace 36.8 with the result. */
 };
 
 /* ── MONTHLY SALES by year — 12 values each ─────────
@@ -373,7 +418,7 @@ function getMonthly(yr,key){
   const ZEROS=Array(12).fill(0);
   const s=MS[yr]||ZEROS,m=MM[yr]||ZEROS,q=MQ[yr]||ZEROS;
   const c=s.map((v,i)=>v-m[i]);
-  const K=36.8;
+  const K=CONFIG.avgUnitsPerTx;
   switch(key){
     case'sales':     return s;
     case'cost':      return c;
@@ -696,8 +741,8 @@ function updateDashboard(){
           return isRatio?` ${c.label}: ${me.fmt(c.parsed)}`:` ${c.label}: ${me.fmt(c.parsed*1e6)} (${pct}%)`;
         }}}}}
   });
-  document.getElementById('sideCatTitle').textContent=`${me.label} · Categorías`;
-  document.getElementById('sideCatSub').textContent=`Distribución ${CY}`;
+  document.getElementById('sideCatTitle').textContent=`${me.label} · Categories`;
+  document.getElementById('sideCatSub').textContent=`Distribution ${CY}`;
 
   // ── Country chart — DYNAMIC by metric
   const cD=getCountryMetricData(CY,me.key,me.aggr);
@@ -719,8 +764,8 @@ function updateDashboard(){
       }
     }
   });
-  document.getElementById('countryTitle').textContent=`${me.label} · País`;
-  document.getElementById('countrySub').textContent=me.key.includes('pct')||me.key==='avg_qty'?`Por país · ${CY} (proporcional)`:`Top 8 países · $M · ${CY}`;
+  document.getElementById('countryTitle').textContent=`${me.label} · Country`;
+  document.getElementById('countrySub').textContent=me.key.includes('pct')||me.key==='avg_qty'?`By country · ${CY} (proportional)`:`Top 8 countries · $M · ${CY}`;
 
   // ── Chart ② — Monthly breakdown for SELECTED year (reacts to year changes)
   const mData=getMonthly(CY,me.key);
@@ -759,8 +804,8 @@ function updateDashboard(){
       }
     }
   });
-  document.getElementById('annualTitle').textContent=`${me.label} · Mensual ${CY}`;
-  document.getElementById('annualSub').textContent=`🟢 sobre ${CY-1} · 🔴 por debajo de ${CY-1}`;
+  document.getElementById('annualTitle').textContent=`${me.label} · Monthly ${CY}`;
+  document.getElementById('annualSub').textContent=`🟢 above ${CY-1} · 🔴 below ${CY-1}`;
 }
 
 /* ── NAVIGATION ─────────────────────────────────── */
