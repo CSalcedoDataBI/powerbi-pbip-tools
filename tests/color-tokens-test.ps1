@@ -264,6 +264,10 @@ try {
     $unsupCases = @(
         @{ t = '<svg><style>path[fill=red]{fill:#0078D4}</style></svg>'; e = 0 }   # selector, not paint
         @{ t = '<svg><style>.a{fill:red}</style></svg>';                 e = 1 }
+        @{ t = '<svg><style>.a{fill: red}</style></svg>';                e = 1 }   # space after the colon
+        @{ t = '<svg><style>.a{stroke:  red}</style></svg>';             e = 1 }   # and two of them
+        @{ t = '<svg><style>.a{fill: rgb(1,2,3)}</style></svg>';         e = 1 }
+        @{ t = '<svg><style>.a{stroke: currentColor}</style></svg>';     e = 1 }
         @{ t = '<svg><style>.a{fill:rgb(1,2,3)}</style></svg>';          e = 1 }
         @{ t = '<svg><style>.a{stroke:currentColor}</style></svg>';      e = 1 }
         @{ t = '<svg><path fill="red"/></svg>';                          e = 1 }

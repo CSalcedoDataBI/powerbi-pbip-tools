@@ -199,7 +199,7 @@ foreach ($reportDir in $reportDirs) {
 
         if ($content -ne $newContent) {
             if ($WhatIf) {
-                Write-Host "  [WhatIf] Would update: $($f.Name)"
+                Write-Host "  [WhatIf] Would modify: $($f.Name)"
             } else {
                 # Write back the SAME encoding the file arrived in.
                 # [System.Text.Encoding]::UTF8 always prepends a BOM, which is how
@@ -212,7 +212,9 @@ foreach ($reportDir in $reportDirs) {
     }
     $totalChanged += $changed
 
-    $action = if ($WhatIf) { "Would update" } else { "Updated" }
+    # Same word as the summary: this counts files MODIFIED, not files that came
+    # out fully recolored.
+    $action = if ($WhatIf) { "Would modify" } else { "Modified" }
     Write-Host "[$($reportDir.Name)] $action $changed/$($allFiles.Count) SVGs (-> $To)"
 }
 

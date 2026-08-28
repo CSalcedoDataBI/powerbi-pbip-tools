@@ -47,8 +47,8 @@ Before modifying anything, preview which files would be updated:
 **Output:**
 ```text
 [MyReport.Report] Auto-detected: #003893, #CE1126, #FCD116
-  [WhatIf] Would update: icon_arrow.svg
-  [WhatIf] Would update: icon_chart.svg
+  [WhatIf] Would modify: icon_arrow.svg
+  [WhatIf] Would modify: icon_chart.svg
   ...
 [WhatIf] Total: 142/142 SVGs would be modified. No files were changed.
 ```
@@ -68,7 +68,7 @@ Run without `-WhatIf` to apply. Add `-Backup` to save originals first:
 ```text
 [MyReport.Report] Auto-detected: #003893, #CE1126, #FCD116
 [MyReport.Report] Backup saved to: C:\Users\you\AppData\Local\Temp\pbip-recolor-backup_MyReport.Report_20250115_143022
-[MyReport.Report] Updated 142/142 SVGs (-> #FF0000)
+[MyReport.Report] Modified 142/142 SVGs (-> #FF0000)
 
 Done. Total: 142/142 SVGs updated (-> #FF0000)
 ```
