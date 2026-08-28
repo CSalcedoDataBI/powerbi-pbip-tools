@@ -321,5 +321,21 @@ function Get-FileEncodingKind {
     $ascii = [System.Text.Encoding]::ASCII.GetString($sample)
     if ($ascii -match '(?i)<\?xml[^>]*encoding\s*=\s*["'']utf-16') { return 'Utf16' }
 
+    # An XML declaration naming anything other than UTF-8 means ReadAllText would
+    # decode the file wrongly and WriteAllText would then save that damage.
+    $declared = [regex]::Match($ascii, '(?i)<\?xml[^>]*encoding\s*=\s*["'']([^"'']+)')
+    if ($declared.Success -and $declared.Groups[1].Value -notmatch '(?i)^utf-?8$') { return 'Other' }
+
+    # No declaration is not proof of UTF-8. A latin-1 file carrying an accented
+    # character is not valid UTF-8, and decoding it would turn those bytes into
+    # replacement characters that the write would then make permanent. Ask the
+    # decoder to throw instead of substituting.
+    try {
+        $strict = New-Object System.Text.UTF8Encoding($false, $true)
+        [void]$strict.GetString($sample)
+    } catch {
+        return 'Other'
+    }
+
     return 'Utf8NoBom'
 }

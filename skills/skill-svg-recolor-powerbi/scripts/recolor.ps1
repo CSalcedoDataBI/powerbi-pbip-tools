@@ -94,8 +94,8 @@ foreach ($reportDir in $reportDirs) {
     $encodingOf = @{}
     foreach ($f in $allFiles) {
         $kind = Get-FileEncodingKind -Path $f.FullName
-        if ($kind -eq 'Utf16') {
-            Write-Warning "  Skipped (UTF-16, would be re-encoded): $($f.Name)"
+        if ($kind -eq 'Utf16' -or $kind -eq 'Other') {
+            Write-Warning "  Skipped (not UTF-8, would be re-encoded): $($f.Name)"
             continue
         }
         $encodingOf[$f.FullName] = $kind

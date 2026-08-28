@@ -219,6 +219,29 @@ try {
         -Ok ($sel -match '/\* commented: #0078D4 and \.old\{fill:#0078D4\} \*/') `
         -Detail 'el comentario conserva sus dos colores intactos'
 
+    # --- files that are not UTF-8 are skipped, not mangled ---------------------
+    # ReadAllText would decode a latin-1 file with replacement characters and the
+    # write would make that damage permanent, for the sake of one color.
+    $encDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-enc-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $encRes = Join-Path (Join-Path (Join-Path $encDir 'E.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $encRes -Force | Out-Null
+    $latin = [System.Text.Encoding]::GetEncoding('ISO-8859-1')
+    [System.IO.File]::WriteAllBytes((Join-Path $encRes 'decl.svg'),
+        $latin.GetBytes('<?xml version="1.0" encoding="ISO-8859-1"?><svg><title>A' + [char]0xF1 + 'adir</title><path fill="#0078D4"/></svg>'))
+    [System.IO.File]::WriteAllBytes((Join-Path $encRes 'nodecl.svg'),
+        $latin.GetBytes('<svg><title>A' + [char]0xF1 + 'adir ' + [char]0xA9 + '</title><path fill="#0078D4"/></svg>'))
+    [System.IO.File]::WriteAllText((Join-Path $encRes 'ok.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    $encBefore = @{}
+    foreach ($f in (Get-ChildItem $encRes -Filter '*.svg')) { $encBefore[$f.Name] = (Get-FileHash $f.FullName).Hash }
+    & $recolor -PbipDir $encDir -To '#DC143C' *>&1 | Out-Null
+    $latinIntact = ((Get-FileHash (Join-Path $encRes 'decl.svg')).Hash -eq $encBefore['decl.svg']) -and
+                   ((Get-FileHash (Join-Path $encRes 'nodecl.svg')).Hash -eq $encBefore['nodecl.svg'])
+    $utf8Changed = (Get-FileHash (Join-Path $encRes 'ok.svg')).Hash -ne $encBefore['ok.svg']
+    Remove-Item $encDir -Recurse -Force -ErrorAction SilentlyContinue
+    Test-Check -Name 'archivos latin-1 se saltan intactos (con y sin declaracion XML)' `
+        -Ok ($latinIntact -and $utf8Changed) `
+        -Detail "latin-1 intactos: $latinIntact / el UTF-8 si cambio: $utf8Changed"
+
     # --- recolor: warns even when there is nothing to rewrite (#12) ------------
     # The case where the warning matters most: every color is a notation this tool
     # does not handle, so nothing changes and the user needs to know why.

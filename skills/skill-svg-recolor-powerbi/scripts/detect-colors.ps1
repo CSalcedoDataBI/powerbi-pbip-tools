@@ -46,8 +46,8 @@ foreach ($reportDir in $reportDirs) {
     # reported as skipped instead of scanned as garbage.
     $files = @()
     foreach ($f in $allFiles) {
-        if ((Get-FileEncodingKind -Path $f.FullName) -eq 'Utf16') {
-            Write-Warning "  Skipped (UTF-16): $($f.Name)"
+        if ((Get-FileEncodingKind -Path $f.FullName) -in @('Utf16', 'Other')) {
+            Write-Warning "  Skipped (not UTF-8): $($f.Name)"
             continue
         }
         $files += $f
