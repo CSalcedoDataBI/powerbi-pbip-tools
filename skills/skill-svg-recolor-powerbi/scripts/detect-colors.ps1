@@ -16,9 +16,9 @@ $regex = [regex]::new('#[0-9A-Fa-f]{6}')
 
 foreach ($f in $files) {
     $text = [System.IO.File]::ReadAllText($f.FullName)
-    $matches = $regex.Matches($text)
+    $hexMatches = $regex.Matches($text)
     $seen = @{}
-    foreach ($m in $matches) {
+    foreach ($m in $hexMatches) {
         $c = $m.Value.ToUpper()
         if (-not $seen.ContainsKey($c)) {
             $seen[$c] = $true
