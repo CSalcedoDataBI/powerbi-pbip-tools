@@ -324,6 +324,41 @@ try {
     Test-Check -Name 'rgb( dentro de un string CSS no cuenta como notacion' -Ok ($cssStr.Count -eq 0) `
         -Detail "notaciones reportadas: $($cssStr.Count)"
 
+    # --- a write that fails is a failure, not a smaller success ----------------
+    $roDir = Get-ScopedTempPath -Prefix 'pbip-ro'
+    $roRes = Join-Path (Join-Path (Join-Path $roDir 'R.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $roRes -Force | Out-Null
+    foreach ($n in 'a', 'b', 'c') {
+        [System.IO.File]::WriteAllText((Join-Path $roRes "$n.svg"), "<svg id=`"$n`"><path fill=`"#0078D4`"/></svg>", $utf8NoBom)
+    }
+    Set-ItemProperty (Join-Path $roRes 'b.svg') -Name IsReadOnly -Value $true
+    # Continue, not Stop, for this one call: the script ends with Write-Error and
+    # under Stop the caller only ever sees that exception - the per-report line we
+    # need to assert on would be thrown away with the rest of the output.
+    $roOut = ''
+    $prevEap = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $roOut = (& $recolor -PbipDir $roDir -To '#DC143C' *>&1 | Out-String)
+    $ErrorActionPreference = $prevEap
+    Set-ItemProperty (Join-Path $roRes 'b.svg') -Name IsReadOnly -Value $false
+    $bIntact = ([System.IO.File]::ReadAllText((Join-Path $roRes 'b.svg')) -match '#0078D4')
+    $othersDone = ([System.IO.File]::ReadAllText((Join-Path $roRes 'a.svg')) -match '#DC143C')
+    Test-Check -Name 'un archivo no escribible no se cuenta como modificado' `
+        -Ok (($roOut -match '2/3') -and $bIntact -and $othersDone) `
+        -Detail "cuenta honesta: $($roOut -match '2/3') / b intacto: $bIntact / a recoloreado: $othersDone"
+
+    # --- .SVG in capitals is still an SVG --------------------------------------
+    # Windows would find it either way; Linux, where CI runs, would not.
+    $caseDir = Get-ScopedTempPath -Prefix 'pbip-case'
+    $caseRes = Join-Path (Join-Path (Join-Path $caseDir 'C.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $caseRes -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $caseRes 'upper.SVG'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $caseRes 'lower.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    & $recolor -PbipDir $caseDir -To '#DC143C' *>&1 | Out-Null
+    $upperDone = ([System.IO.File]::ReadAllText((Join-Path $caseRes 'upper.SVG')) -match '#DC143C')
+    Test-Check -Name 'una extension .SVG en mayusculas tambien se recolorea' -Ok $upperDone `
+        -Detail "upper.SVG recoloreado: $upperDone"
+
     # --- files that are not UTF-8 are skipped, not mangled ---------------------
     # ReadAllText would decode a latin-1 file with replacement characters and the
     # write would make that damage permanent, for the sake of one color.

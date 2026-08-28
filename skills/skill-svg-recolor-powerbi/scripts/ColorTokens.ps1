@@ -142,7 +142,7 @@ function Get-CssValueRange {
     $masked = -join $chars
 
     # --- Pass 2: one walk recording where a declaration value is open -------
-    $ranges = @()
+    $ranges = [System.Collections.Generic.List[object]]::new()
     $blocks = New-Object System.Collections.Generic.Stack[bool]   # $true = at-rule block
     $valueStart = -1
     $valueBrace = 0     # braces opened INSIDE the value that is currently open
@@ -172,13 +172,13 @@ function Get-CssValueRange {
         elseif ($c -eq '}') {
             if ($valueBrace -gt 0) { $valueBrace-- }
             else {
-                if ($valueStart -ge 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
+                if ($valueStart -ge 0) { $ranges.Add(@($valueStart, $i)); $valueStart = -1 }
                 if ($blocks.Count -gt 0) { [void]$blocks.Pop() }
                 $preludeStart = $i + 1
             }
         }
         elseif ($c -eq ';') {
-            if ($valueStart -ge 0 -and $valueBrace -eq 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
+            if ($valueStart -ge 0 -and $valueBrace -eq 0) { $ranges.Add(@($valueStart, $i)); $valueStart = -1 }
             if ($valueStart -lt 0) { $preludeStart = $i + 1 }
         }
         elseif ($c -eq ':' -and $valueStart -lt 0 -and
@@ -188,7 +188,7 @@ function Get-CssValueRange {
             $valueStart = $i + 1
         }
     }
-    if ($valueStart -ge 0) { $ranges += , @($valueStart, $n) }
+    if ($valueStart -ge 0) { $ranges.Add(@($valueStart, $n)) }
 
     return @{ Masked = $masked; Ranges = $ranges }
 }
@@ -203,27 +203,29 @@ function Get-ColorTokenMatch {
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
 
     # Each style block is masked and scanned ONCE, not re-scanned per token.
-    $styleInfo = @()
+    # Lists, not '+=' on arrays: '+=' rebuilds the whole array every iteration,
+    # which turns a minified icon with many tokens into a quadratic walk.
+    $styleInfo = [System.Collections.Generic.List[object]]::new()
     foreach ($r in [regex]::Matches($Text, $script:StyleBlockPattern)) {
         # Group 1 is the CSS itself. Passing $r.Value would include the '<style ...>'
         # tag, and then the first rule's prelude starts with '<' instead of '@' -
         # which is exactly how an at-rule stops being recognised as one.
         $css = $r.Groups[1]
-        $styleInfo += , @{ Start = $css.Index; End = ($css.Index + $css.Length); Info = (Get-CssValueRange -Css $css.Value) }
+        $styleInfo.Add(@{ Start = $css.Index; End = ($css.Index + $css.Length); Info = (Get-CssValueRange -Css $css.Value) })
     }
 
-    $refSpans = @()
+    $refSpans = [System.Collections.Generic.List[object]]::new()
     foreach ($r in [regex]::Matches($Text, $script:NonPaintPattern)) {
-        $refSpans += , @($r.Index, ($r.Index + $r.Length))
+        $refSpans.Add(@($r.Index, ($r.Index + $r.Length)))
     }
     foreach ($r in [regex]::Matches($Text, $script:FragmentRefPattern)) {
         # Parentheses required: PowerShell's comma binds tighter than +, so
         # @($a, $a + $b) parses as ($a, $a) + $b and yields THREE elements.
         # That silently made every span empty and excluded nothing.
-        $refSpans += , @($r.Index, ($r.Index + $r.Length))
+        $refSpans.Add(@($r.Index, ($r.Index + $r.Length)))
     }
 
-    $keep = @()
+    $keep = [System.Collections.Generic.List[object]]::new()
     foreach ($m in [regex]::Matches($Text, $script:HexTokenPattern)) {
         $inside = $false
         foreach ($span in $refSpans) {
@@ -249,12 +251,12 @@ function Get-ColorTokenMatch {
             }
         }
 
-        if (-not $inside) { $keep += $m }
+        if (-not $inside) { $keep.Add($m) }
     }
     # No leading comma: ',@()' returns an array CONTAINING an empty array, and the
     # caller then iterates one bogus element. Callers wrap with @() where they need
     # an array; a plain return unrolls correctly for both foreach and @().
-    return $keep
+    return $keep.ToArray()
 }
 
 # Color notations this tool can see but deliberately does NOT rewrite. Reported so
@@ -308,10 +310,13 @@ function Get-UnsupportedNotation {
     # Prose is masked out first, exactly as it is for hex tokens. Otherwise the
     # word 'currentColor' in a <desc> makes the script warn that colors were left
     # unrewritten when none were.
-    $paint = $Text
+    # A char array, not repeated Remove/Insert: strings are immutable, so masking
+    # N regions of a large file that way allocates N whole copies of it.
+    $paintChars = $Text.ToCharArray()
     foreach ($r in [regex]::Matches($Text, $script:NonPaintPattern)) {
-        $paint = $paint.Remove($r.Index, $r.Length).Insert($r.Index, (' ' * $r.Length))
+        for ($k = $r.Index; $k -lt $r.Index + $r.Length; $k++) { $paintChars[$k] = ' ' }
     }
+    $paint = -join $paintChars
     # Style blocks get the SAME masking hex detection uses. Otherwise 'rgb(' or
     # 'currentColor' written inside a CSS comment, a CSS string or a url() body
     # is counted as a color left unrewritten, and the closing warning is wrong.
@@ -345,6 +350,19 @@ function Get-UnsupportedNotation {
         if ($count -gt 0) { $found[$name] = $count }
     }
     return $found
+}
+
+function Get-SvgFile {
+    <#
+    .SYNOPSIS
+      Every .svg in a folder, whatever the case of the extension.
+    .DESCRIPTION
+      Get-ChildItem -Filter '*.svg' is case-insensitive on Windows and case-
+      SENSITIVE on Linux, where CI runs. An icon named ICON.SVG would simply not
+      exist as far as the tool was concerned - reported as 0/0, never recolored.
+    #>
+    param([Parameter(Mandatory)][string]$Path)
+    return @(Get-ChildItem $Path -File | Where-Object { $_.Extension -ieq '.svg' })
 }
 
 function Join-PbipPath {

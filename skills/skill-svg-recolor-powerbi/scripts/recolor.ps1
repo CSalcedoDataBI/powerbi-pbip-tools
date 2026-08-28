@@ -81,6 +81,7 @@ $toCanonical  = Get-CanonicalHex -Token $To
 $totalChanged = 0
 $totalFiles = 0
 $processedReports = 0
+$writeFailures = 0
 $unsupportedSeen = @{}
 $scannedForUnsupported = @{}
 $filesWithUnsupported = @{}
@@ -93,7 +94,7 @@ foreach ($reportDir in $reportDirs) {
     }
 
     $processedReports++
-    $allFiles = Get-ChildItem $svgDir -Filter "*.svg"
+    $allFiles = Get-SvgFile -Path $svgDir
     $totalFiles += $allFiles.Count
 
     # Encoding is settled ONCE, before anything reads a byte. Doing it later meant
@@ -205,7 +206,16 @@ foreach ($reportDir in $reportDirs) {
                 # [System.Text.Encoding]::UTF8 always prepends a BOM, which is how
                 # every icon this tool touched ended up with one.
                 $encoding = if ($encodingOf[$f.FullName] -eq 'Utf8Bom') { $script:Utf8WithBom } else { $script:Utf8NoBom }
-                [System.IO.File]::WriteAllText($f.FullName, $newContent, $encoding)
+                try {
+                    [System.IO.File]::WriteAllText($f.FullName, $newContent, $encoding)
+                } catch {
+                    # A read-only or locked file used to throw here, be printed as a
+                    # loose error, and STILL be counted as modified - the run then
+                    # reported 3/3 and exited 0 having changed two files.
+                    Write-Warning "  Could not write $($f.Name): $($_.Exception.Message)"
+                    $writeFailures++
+                    continue
+                }
             }
             $changed++
         }
@@ -239,6 +249,14 @@ if ($WhatIf) {
 # Say out loud what was left behind. Reporting "184/184 updated" while icons keep
 # their old color because they use rgb() or currentColor is the failure this warns
 # about - the user would otherwise find out by opening Power BI.
+# A failed write is not a smaller success. Saying so in the exit code matters
+# most for the caller that never reads the output.
+if ($writeFailures -gt 0) {
+    Write-Host ""
+    Write-Error "$writeFailures file(s) could not be written (see the warnings above). Nothing else was rolled back."
+    exit 1
+}
+
 if ($unsupportedSeen.Count -gt 0) {
     Write-Host ""
     Write-Warning ("Some colors were NOT rewritten in {0} file(s), because this tool only replaces hex notation:" -f $filesWithUnsupported.Count)
