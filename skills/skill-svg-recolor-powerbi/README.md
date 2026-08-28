@@ -152,6 +152,13 @@ are icon files made of attribute soup, and guessing which attributes may carry
 paint would miss real ones. If you keep hex strings somewhere unusual in your
 SVGs, run with `-WhatIf` first.
 
+**Links.** A *symlink* inside `RegisteredResources` is skipped on write, with the
+reason printed: it is a pointer, and following it would land the change on a file
+outside the project. A *hard link* is not skipped, because it is not a pointer —
+the file in the folder is the file, with equal standing to its other name, and
+Power BI reads it as a project asset. Recoloring it changes what the other name
+sees, which is what a hard link means.
+
 File encoding is preserved rather than imposed: a file that arrived without a BOM
 is written back without one, a file that had one keeps it, and a UTF-16 file is
 skipped with a warning instead of being silently re-encoded as UTF-8.

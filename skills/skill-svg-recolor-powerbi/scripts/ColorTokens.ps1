@@ -146,6 +146,7 @@ function Get-CssValueRange {
     $blocks = New-Object System.Collections.Generic.Stack[bool]   # $true = at-rule block
     $valueStart = -1
     $valueBrace = 0     # braces opened INSIDE the value that is currently open
+    $valueIsCustom = $false
     $preludeStart = 0   # where the current selector / at-rule prelude began
     for ($i = 0; $i -lt $n; $i++) {
         $c = $masked[$i]
@@ -154,7 +155,16 @@ function Get-CssValueRange {
             #   :root { --palette: {#ABCDEF}; fill: #000 }
             # Treating that brace as a rule boundary would close the declaration
             # and hide the color inside it.
-            if ($valueStart -ge 0) { $valueBrace++ }
+            if ($valueStart -ge 0 -and $valueIsCustom) { $valueBrace++ }
+            elseif ($valueStart -ge 0) {
+                # A '{' arrived while a value looked open, and this is not a custom
+                # property. CSS nesting: 'g { &:hover #A12345 { ... } }' - the colon
+                # of ':hover' opened a value that was really a selector. Retract it,
+                # or the id gets rewritten and the rule stops matching anything.
+                $valueStart = -1
+                $blocks.Push($false)
+                $preludeStart = $i + 1
+            }
             else {
                 # Is this an at-rule block? '@media(...){ a:hover #ABC { } }' has
                 # depth 1 while still in SELECTOR territory, so depth alone says
@@ -186,6 +196,15 @@ function Get-CssValueRange {
             # Only inside a declaration block, never inside an at-rule block and
             # never at depth 0 - both of those are selector territory.
             $valueStart = $i + 1
+            # Remember whether this is a custom property: only those may legally
+            # carry a braced value, so only those get to keep it (see '{' above).
+            $nameEnd = $i - 1
+            while ($nameEnd -ge 0 -and [char]::IsWhiteSpace($masked[$nameEnd])) { $nameEnd-- }
+            $nameStart = $nameEnd
+            while ($nameStart -ge 0 -and ($masked[$nameStart] -eq '-' -or
+                   [char]::IsLetterOrDigit($masked[$nameStart]))) { $nameStart-- }
+            $name = if ($nameEnd -ge $nameStart + 1) { $masked.Substring($nameStart + 1, $nameEnd - $nameStart) } else { '' }
+            $valueIsCustom = $name.StartsWith('--')
         }
     }
     if ($valueStart -ge 0) { $ranges.Add(@($valueStart, $n)) }
@@ -362,7 +381,9 @@ function Get-SvgFile {
       exist as far as the tool was concerned - reported as 0/0, never recolored.
     #>
     param([Parameter(Mandatory)][string]$Path)
-    return @(Get-ChildItem $Path -File | Where-Object { $_.Extension -ieq '.svg' })
+    # -LiteralPath: a project folder called 'MyReport[1]' is a wildcard to
+    # -Path, and the whole project silently reads as empty.
+    return @(Get-ChildItem -LiteralPath $Path -File | Where-Object { $_.Extension -ieq '.svg' })
 }
 
 function Join-PbipPath {
@@ -408,7 +429,12 @@ function Get-FileEncodingKind {
     # permanent.
     try {
         $strict = New-Object System.Text.UTF8Encoding($false, $true)
-        $body = if ($hasUtf8Bom) { $sample[3..($sample.Length - 1)] } else { $sample }
+        # $sample[3..2] on a 3-byte file is a REVERSE slice, not an empty one: it
+        # hands back bytes 3 and 2, and the stray 0xBF then fails the decode. A
+        # file that is only a BOM is valid, empty UTF-8.
+        $body = if (-not $hasUtf8Bom) { $sample }
+                elseif ($sample.Length -gt 3) { $sample[3..($sample.Length - 1)] }
+                else { [byte[]]@() }
         if ($body.Length -gt 0) { [void]$strict.GetString($body) }
     } catch {
         return 'Other'

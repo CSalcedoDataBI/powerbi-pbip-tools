@@ -72,7 +72,8 @@ foreach ($c in $Exclude) {
 }
 
 # --- Locate all .Report folders (supports multiple reports in one project) ---
-$reportDirs = Get-ChildItem $PbipDir -Filter "*.Report" -Directory
+# -LiteralPath throughout: brackets in a folder name are wildcards to -Path.
+$reportDirs = Get-ChildItem -LiteralPath $PbipDir -Filter "*.Report" -Directory
 if (-not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
 
 if (-not $BackupRoot) { $BackupRoot = [System.IO.Path]::GetTempPath() }
@@ -88,7 +89,7 @@ $filesWithUnsupported = @{}
 
 foreach ($reportDir in $reportDirs) {
     $svgDir = Join-PbipPath -ReportDir $reportDir.FullName
-    if (-not (Test-Path $svgDir)) {
+    if (-not (Test-Path -LiteralPath $svgDir)) {
         Write-Warning "RegisteredResources not found in: $($reportDir.FullName) - skipping."
         continue
     }
@@ -169,7 +170,7 @@ foreach ($reportDir in $reportDirs) {
         try {
             New-Item -ItemType Directory -Path $backupDir -ErrorAction Stop | Out-Null
             foreach ($f in $files) {
-                Copy-Item $f.FullName -Destination $backupDir -ErrorAction Stop
+                Copy-Item -LiteralPath $f.FullName -Destination $backupDir -ErrorAction Stop
             }
         } catch {
             Write-Error "[$($reportDir.Name)] Backup failed - no files were modified. $($_.Exception.Message)"

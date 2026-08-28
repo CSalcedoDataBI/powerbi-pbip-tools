@@ -192,6 +192,7 @@ try {
         @{ n = 'a brace inside a string is not a brace'; t = '<svg><style>.a::before{content:"}";fill:#fff}</style></svg>';                          e = '#fff' }
         @{ n = 'a semicolon in a data URL is not one';   t = '<svg><style>.a{background:url("data:image/svg+xml;utf8,x");fill:#fff}</style></svg>';  e = '#fff' }
         @{ n = 'selector vs value in one rule';          t = '<svg><style>#fff:hover{fill:#000}</style></svg>';                                      e = '#000' }
+        @{ n = 'CSS nesting: &:hover is a selector';  t = '<svg><style>g { &:hover #A12345 { fill: #A12345 } }</style></svg>';                        e = '#A12345' }
         @{ n = 'declaration-list at-rules hold colors'; t = '<svg><style>@property --brand{syntax:1;initial-value:#0078D4}</style></svg>';             e = '#0078D4' }
         @{ n = 'font-face is a declaration list';       t = '<svg><style>@font-face{src:url(a);color:#111}</style></svg>';                              e = '#111' }
         @{ n = 'at-rule block is selector territory'; t = '<svg><style>@media (min-width:1px){ a:hover #ABCDEF { fill:#000 } }</style></svg>';          e = '#000' }
@@ -358,6 +359,27 @@ try {
     $upperDone = ([System.IO.File]::ReadAllText((Join-Path $caseRes 'upper.SVG')) -match '#DC143C')
     Test-Check -Name 'una extension .SVG en mayusculas tambien se recolorea' -Ok $upperDone `
         -Detail "upper.SVG recoloreado: $upperDone"
+
+    # --- a folder name with brackets is a name, not a wildcard -----------------
+    $brDir = Join-Path ([System.IO.Path]::GetTempPath()) "MyReport[1]-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $script:tempPaths += $brDir
+    $brRes = Join-Path (Join-Path (Join-Path $brDir 'B.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $brRes -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $brRes 'a.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    & $recolor -PbipDir $brDir -To '#DC143C' *>&1 | Out-Null
+    Test-Check -Name 'una ruta con corchetes no se trata como comodin' `
+        -Ok ([System.IO.File]::ReadAllText((Join-Path $brRes 'a.svg')) -match '#DC143C') `
+        -Detail 'el proyecto se encontro y se recoloreo'
+
+    # --- a file that is only a BOM is valid, empty UTF-8 -----------------------
+    $bomDir = Get-ScopedTempPath -Prefix 'pbip-bomonly'
+    $bomRes = Join-Path (Join-Path (Join-Path $bomDir 'O.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $bomRes -Force | Out-Null
+    [System.IO.File]::WriteAllBytes((Join-Path $bomRes 'empty.svg'), [byte[]](0xEF, 0xBB, 0xBF))
+    [System.IO.File]::WriteAllText((Join-Path $bomRes 'real.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    $bomOut = (& $detect -PbipDir $bomDir *>&1 | Out-String)
+    Test-Check -Name 'un archivo de solo BOM no se descarta como no-UTF-8' `
+        -Ok ($bomOut -match '2 scanned \(2 found\)') -Detail (($bomOut -split "`n" | Where-Object { $_ -match 'SVGs' }) -join '')
 
     # --- a link is not a file this tool owns -----------------------------------
     # Creating a symlink needs Developer Mode or elevation on Windows, so the check
