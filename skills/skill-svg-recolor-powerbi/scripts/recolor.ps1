@@ -84,8 +84,23 @@ foreach ($reportDir in $reportDirs) {
     }
 
     $processedReports++
-    $files = Get-ChildItem $svgDir -Filter "*.svg"
-    $totalFiles += $files.Count
+    $allFiles = Get-ChildItem $svgDir -Filter "*.svg"
+    $totalFiles += $allFiles.Count
+
+    # Encoding is settled ONCE, before anything reads a byte. Doing it later meant
+    # a BOM-less UTF-16 file was scanned as UTF-8 garbage, reported "no colors",
+    # and skipped by the early exit before its warning could ever print.
+    $files = @()
+    $encodingOf = @{}
+    foreach ($f in $allFiles) {
+        $kind = Get-FileEncodingKind -Path $f.FullName
+        if ($kind -eq 'Utf16') {
+            Write-Warning "  Skipped (UTF-16, would be re-encoded): $($f.Name)"
+            continue
+        }
+        $encodingOf[$f.FullName] = $kind
+        $files += $f
+    }
 
     # --- Build the set of colors to leave alone ---
     $excludeSet = @{}
@@ -146,13 +161,6 @@ foreach ($reportDir in $reportDirs) {
     # --- Replace colors ---
     $changed = 0
     foreach ($f in $files) {
-        # A UTF-16 file would come back through ReadAllText and go out as UTF-8,
-        # re-encoding an asset nobody asked to re-encode. Skip it loudly instead.
-        $encodingKind = Get-FileEncodingKind -Path $f.FullName
-        if ($encodingKind -eq 'Utf16') {
-            Write-Warning "  Skipped (UTF-16, would be re-encoded): $($f.Name)"
-            continue
-        }
         $content = [System.IO.File]::ReadAllText($f.FullName)
 
         # Token-wise, never a blind substring replace: each match is a complete
@@ -185,7 +193,7 @@ foreach ($reportDir in $reportDirs) {
                 # Write back the SAME encoding the file arrived in.
                 # [System.Text.Encoding]::UTF8 always prepends a BOM, which is how
                 # every icon this tool touched ended up with one.
-                $encoding = if ($encodingKind -eq 'Utf8Bom') { $script:Utf8WithBom } else { $script:Utf8NoBom }
+                $encoding = if ($encodingOf[$f.FullName] -eq 'Utf8Bom') { $script:Utf8WithBom } else { $script:Utf8NoBom }
                 [System.IO.File]::WriteAllText($f.FullName, $newContent, $encoding)
             }
             $changed++
@@ -194,7 +202,7 @@ foreach ($reportDir in $reportDirs) {
     $totalChanged += $changed
 
     $action = if ($WhatIf) { "Would update" } else { "Updated" }
-    Write-Host "[$($reportDir.Name)] $action $changed/$($files.Count) SVGs (-> $To)"
+    Write-Host "[$($reportDir.Name)] $action $changed/$($allFiles.Count) SVGs (-> $To)"
 }
 
 # Every .Report was skipped for lack of RegisteredResources: nothing was even

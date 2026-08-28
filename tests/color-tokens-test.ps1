@@ -60,6 +60,9 @@ try {
         # attribute, not run on and swallow the color further down the line.
         'entity.svg'= '<svg><use href=&quot;#fff&quot;/><path fill=&quot;#0078D4&quot;/></svg>'
         # A file whose only colors are notations this tool cannot rewrite.
+        # A hex-looking CSS id selector inside a <style> block. Rewriting it breaks
+        # the stylesheet while the matching id attribute stays put.
+        'css.svg'   = '<svg><style>#fff{fill:#0078D4} #abc,#def{stroke:#0078D4}</style><path id="fff"/></svg>'
         'onlyother.svg' = '<svg><path fill="rgb(1,2,3)"/><path stroke="currentColor"/></svg>'
         'refs2.svg' = '<svg><rect fill="url(&apos;#fff&apos;)"/><rect fill="url( #0078D4 )"/><use href = "#fff"/><use xlink:href = &apos;#0078D4&apos;/><path fill="#0078D4"/></svg>'
     }
@@ -112,6 +115,10 @@ try {
     $refs2 = [System.IO.File]::ReadAllText((Join-Path $res 'refs2.svg'))
     Test-Check -Name 'url() con comillas/espacios y href con espacios tambien sobreviven' `
         -Ok ($refs2 -match "#fff" -and ($refs2 -split '#0078D4').Count -ge 3) -Detail $refs2
+
+    $css = [System.IO.File]::ReadAllText((Join-Path $res 'css.svg'))
+    Test-Check -Name 'los selectores CSS (#fff{) no se tratan como color' `
+        -Ok ($css -match '#fff\{' -and $css -match '#abc,#def' -and $css -match 'fill:#DC143C') -Detail $css
 
     $entity = [System.IO.File]::ReadAllText((Join-Path $res 'entity.svg'))
     Test-Check -Name 'un href con &quot; no se traga el color siguiente' `

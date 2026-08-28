@@ -34,6 +34,13 @@ $script:FragmentRefPattern =
     '(?i)(?:url\s*\(\s*(?:["'']|&apos;|&quot;)?\s*#[^)"''\s&]+' +
     '|(?:xlink:)?href\s*=\s*(?:["'']|&apos;|&quot;)\s*#[^"''\s>&]*)'
 
+# A '#token' in CSS selector position is an id selector, not a color:
+#   <style>#fff{fill:#0078D4}</style>
+# Rewriting it breaks the stylesheet while the matching id attribute stays put -
+# the same failure as a fragment reference, reached through CSS instead.
+# A real color is never followed by '{' or ','.
+$script:CssSelectorPattern = '#[0-9A-Za-z_-]+(?=\s*[{,])'
+
 function Get-ColorTokenMatch {
     <#
     .SYNOPSIS
@@ -44,6 +51,9 @@ function Get-ColorTokenMatch {
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
 
     $refSpans = @()
+    foreach ($r in [regex]::Matches($Text, $script:CssSelectorPattern)) {
+        $refSpans += , @($r.Index, ($r.Index + $r.Length))
+    }
     foreach ($r in [regex]::Matches($Text, $script:FragmentRefPattern)) {
         # Parentheses required: PowerShell's comma binds tighter than +, so
         # @($a, $a + $b) parses as ($a, $a) + $b and yields THREE elements.

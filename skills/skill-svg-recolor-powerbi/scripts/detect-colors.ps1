@@ -41,7 +41,17 @@ foreach ($reportDir in $reportDirs) {
     $processedReports++
 
     # --- Scan SVGs for color tokens ---
-    $files = Get-ChildItem $svgDir -Filter "*.svg"
+    $allFiles = Get-ChildItem $svgDir -Filter "*.svg"
+    # Same as recolor.ps1: settle encoding before reading, so a UTF-16 file is
+    # reported as skipped instead of scanned as garbage.
+    $files = @()
+    foreach ($f in $allFiles) {
+        if ((Get-FileEncodingKind -Path $f.FullName) -eq 'Utf16') {
+            Write-Warning "  Skipped (UTF-16): $($f.Name)"
+            continue
+        }
+        $files += $f
+    }
     $colorCount = @{}
     $unsupported = @{}
 
@@ -67,7 +77,7 @@ foreach ($reportDir in $reportDirs) {
     # --- Output ---
     Write-Host "Report : $($reportDir.Name)"
     Write-Host "Folder : $svgDir"
-    Write-Host "SVGs   : $($files.Count) scanned"
+    Write-Host "SVGs   : $($files.Count) scanned ($($allFiles.Count) found)"
     Write-Host "Colors : $($colorCount.Count) unique hex colors found"
     Write-Host ""
 
