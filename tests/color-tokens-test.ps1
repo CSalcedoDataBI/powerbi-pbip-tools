@@ -54,6 +54,9 @@ try {
         # Ids that look like hex are ordinary SVGO output. Rewriting the reference
         # while the id attribute stays put leaves the file rendering wrong.
         'refs.svg'  = '<svg><defs><linearGradient id="fff"/><mask id="0078D4"/></defs><rect fill="url(#fff)" mask="url(#0078D4)"/><use href="#fff"/><path fill="#0078D4"/></svg>'
+        # The same reference written the other legal ways: quoted inside url(),
+        # padded with spaces, and with whitespace around the href equals sign.
+        'refs2.svg' = '<svg><rect fill="url(&apos;#fff&apos;)"/><rect fill="url( #0078D4 )"/><use href = "#fff"/><use xlink:href = &apos;#0078D4&apos;/><path fill="#0078D4"/></svg>'
     }
     foreach ($kv in $fixture.GetEnumerator()) {
         [System.IO.File]::WriteAllText((Join-Path $res $kv.Key), $kv.Value, $utf8NoBom)
@@ -100,6 +103,10 @@ try {
         -Detail $refs
     Test-Check -Name 'el fill real del mismo archivo si se reemplaza' `
         -Ok ($refs -match 'fill="#DC143C"') -Detail 'el color de verdad cambio'
+
+    $refs2 = [System.IO.File]::ReadAllText((Join-Path $res 'refs2.svg'))
+    Test-Check -Name 'url() con comillas/espacios y href con espacios tambien sobreviven' `
+        -Ok ($refs2 -match "#fff" -and ($refs2 -split '#0078D4').Count -ge 3) -Detail $refs2
 
     # --- recolor: no BOM is written (#25) --------------------------------------
     $bytes = [System.IO.File]::ReadAllBytes((Join-Path $res 'plain.svg'))

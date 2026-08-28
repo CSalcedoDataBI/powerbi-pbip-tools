@@ -102,7 +102,7 @@ foreach ($reportDir in $reportDirs) {
         $sourceSet = @{}
         foreach ($f in $files) {
             $text = [System.IO.File]::ReadAllText($f.FullName)
-            foreach ($m in [regex]::Matches($text, $script:HexTokenPattern)) {
+            foreach ($m in (Get-ColorTokenMatch -Text $text)) {
                 $canonical = Get-CanonicalHex -Token $m.Value
                 if (-not $excludeSet.ContainsKey($canonical)) { $sourceSet[$canonical] = $true }
             }
@@ -150,12 +150,17 @@ foreach ($reportDir in $reportDirs) {
         # color token, compared by canonical value and swapped whole. That is what
         # keeps #RRGGBBAA from being rewritten as a 6-digit color plus a stray
         # alpha, and what lets #FFF be recognised as #FFFFFF.
-        $newContent = [regex]::Replace($content, $script:HexTokenPattern, {
-            param($m)
-            $canonical = Get-CanonicalHex -Token $m.Value
-            if ($sourceSet.ContainsKey($canonical)) { return $To }
-            return $m.Value
-        })
+        # Rebuilt from the right-hand side so earlier match indexes stay valid.
+        # Only tokens Get-ColorTokenMatch returned are candidates, so a hex-looking
+        # fragment id inside url(...) or href="..." is never one of them.
+        $newContent = $content
+        $candidates = @(Get-ColorTokenMatch -Text $content)
+        for ($i = $candidates.Count - 1; $i -ge 0; $i--) {
+            $m = $candidates[$i]
+            if ($sourceSet.ContainsKey((Get-CanonicalHex -Token $m.Value))) {
+                $newContent = $newContent.Remove($m.Index, $m.Length).Insert($m.Index, $To)
+            }
+        }
 
         foreach ($kv in (Get-UnsupportedNotation -Text $content).GetEnumerator()) {
             if ($unsupportedSeen.ContainsKey($kv.Key)) { $unsupportedSeen[$kv.Key] += $kv.Value }

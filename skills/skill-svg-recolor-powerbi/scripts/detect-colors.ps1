@@ -50,7 +50,7 @@ foreach ($reportDir in $reportDirs) {
 
         # Count each color once per file, so the number reads as "files using it".
         $seen = @{}
-        foreach ($m in [regex]::Matches($text, $script:HexTokenPattern)) {
+        foreach ($m in (Get-ColorTokenMatch -Text $text)) {
             $c = Get-CanonicalHex -Token $m.Value
             if (-not $seen.ContainsKey($c)) {
                 $seen[$c] = $true

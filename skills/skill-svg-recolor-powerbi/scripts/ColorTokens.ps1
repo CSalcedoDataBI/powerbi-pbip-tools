@@ -8,18 +8,57 @@
   the two scripts each carrying their own copy of a 6-digit-only regex.
 #>
 
-# Every hex form an SVG may carry, LONGEST FIRST, with guards on both ends.
+# Every hex form an SVG may carry, LONGEST FIRST, with a trailing guard.
 #
-# Trailing guard: without it #RRGGBBAA matches as #RRGGBB with two characters left
-# dangling, so an 8-digit color is silently rewritten keeping the old alpha.
-#
-# Leading guards: in SVG a '#' also introduces a FRAGMENT REFERENCE - url(#grad),
-# href="#mask", mask="url(#m)". Ids like "fff", "abc" or "0078D4" are ordinary
-# output from SVGO, and rewriting one turns a live reference into a dangling one
-# while its id attribute stays put. The whole file renders wrong, silently.
+# Without the guard #RRGGBBAA matches as #RRGGBB with two characters left dangling,
+# so an 8-digit color is silently rewritten keeping the old alpha.
 $script:HexTokenPattern =
-    '(?<!url\()(?<!href=")(?<!href='')(?<!xlink:href=")(?<!xlink:href='')' +
     '#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{3})(?![0-9A-Fa-f])'
+
+# In SVG a '#' also introduces a FRAGMENT REFERENCE - url(#grad), href="#mask".
+# Ids like "fff", "abc" or "0078D4" are ordinary SVGO output, and rewriting one
+# leaves a live reference pointing at nothing while its id attribute stays put.
+#
+# Matched as SPANS rather than excluded with lookbehinds: the reference has too
+# many legal spellings for a fixed-width lookbehind to cover them all -
+# url('#a'), url( #a ), href = "#a", xlink:href='#a'. Anything inside one of
+# these spans is an id, not a color.
+# The quote is optional and may also arrive XML-escaped: inside a double-quoted
+# attribute, url('#a') is often written url(&apos;#a&apos;).
+$script:FragmentRefPattern =
+    '(?i)(?:url\s*\(\s*(?:["'']|&apos;|&quot;)?\s*#[^)"''\s]+' +
+    '|(?:xlink:)?href\s*=\s*(?:["'']|&apos;|&quot;)\s*#[^"'']*)'
+
+function Get-ColorTokenMatch {
+    <#
+    .SYNOPSIS
+      Every hex color token in the text, minus the ones that are fragment ids.
+    .OUTPUTS
+      System.Text.RegularExpressions.Match objects, in document order.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+
+    $refSpans = @()
+    foreach ($r in [regex]::Matches($Text, $script:FragmentRefPattern)) {
+        # Parentheses required: PowerShell's comma binds tighter than +, so
+        # @($a, $a + $b) parses as ($a, $a) + $b and yields THREE elements.
+        # That silently made every span empty and excluded nothing.
+        $refSpans += , @($r.Index, ($r.Index + $r.Length))
+    }
+
+    $keep = @()
+    foreach ($m in [regex]::Matches($Text, $script:HexTokenPattern)) {
+        $inside = $false
+        foreach ($span in $refSpans) {
+            if ($m.Index -ge $span[0] -and $m.Index -lt $span[1]) { $inside = $true; break }
+        }
+        if (-not $inside) { $keep += $m }
+    }
+    # No leading comma: ',@()' returns an array CONTAINING an empty array, and the
+    # caller then iterates one bogus element. Callers wrap with @() where they need
+    # an array; a plain return unrolls correctly for both foreach and @().
+    return $keep
+}
 
 # Color notations this tool can see but deliberately does NOT rewrite. Reported so
 # the user knows they were left alone, instead of finding out in Power BI.
@@ -98,11 +137,25 @@ function Get-FileEncodingKind {
     #>
     param([Parameter(Mandatory)][string]$Path)
 
-    $head = [byte[]]::new(4)
+    $sample = [byte[]]::new(512)
     $stream = [System.IO.File]::OpenRead($Path)
-    try { $read = $stream.Read($head, 0, 4) } finally { $stream.Dispose() }
+    try { $read = $stream.Read($sample, 0, 512) } finally { $stream.Dispose() }
+    if ($read -lt 512) { $sample = $sample[0..([Math]::Max($read - 1, 0))] }
+    $head = $sample
 
     if ($read -ge 3 -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF) { return 'Utf8Bom' }
     if ($read -ge 2 -and (($head[0] -eq 0xFF -and $head[1] -eq 0xFE) -or ($head[0] -eq 0xFE -and $head[1] -eq 0xFF))) { return 'Utf16' }
+
+    # UTF-16 without a BOM still has to be caught, or ReadAllText decodes it as
+    # UTF-8 and the file goes back out re-encoded. Two cheap signals: interleaved
+    # NUL bytes, which ASCII-range UTF-16 is full of, and the XML declaration.
+    if ($sample.Length -ge 4) {
+        $nulls = 0
+        foreach ($b in $sample) { if ($b -eq 0) { $nulls++ } }
+        if (($nulls / $sample.Length) -gt 0.2) { return 'Utf16' }
+    }
+    $ascii = [System.Text.Encoding]::ASCII.GetString($sample)
+    if ($ascii -match '(?i)<\?xml[^>]*encoding\s*=\s*["'']utf-16') { return 'Utf16' }
+
     return 'Utf8NoBom'
 }
