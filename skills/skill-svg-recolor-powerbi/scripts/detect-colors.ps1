@@ -11,7 +11,7 @@ $hexRegex = [regex]::new('#[0-9A-Fa-f]{6}')
 foreach ($reportDir in $reportDirs) {
     $svgDir = Join-Path $reportDir.FullName "StaticResources\RegisteredResources"
     if (-not (Test-Path $svgDir)) {
-        Write-Warning "RegisteredResources not found in: $($reportDir.FullName) — skipping."
+        Write-Warning "RegisteredResources not found in: $($reportDir.FullName) - skipping."
         continue
     }
 
@@ -21,9 +21,9 @@ foreach ($reportDir in $reportDirs) {
 
     foreach ($f in $files) {
         $text = [System.IO.File]::ReadAllText($f.FullName)
-        $matches = $hexRegex.Matches($text)
+        $hexMatches = $hexRegex.Matches($text)
         $seen = @{}
-        foreach ($m in $matches) {
+        foreach ($m in $hexMatches) {
             $c = $m.Value.ToUpper()
             if (-not $seen.ContainsKey($c)) {
                 $seen[$c] = $true

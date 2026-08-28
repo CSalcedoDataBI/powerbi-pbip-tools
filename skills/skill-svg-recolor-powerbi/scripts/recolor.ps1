@@ -34,7 +34,7 @@ $totalFiles = 0
 foreach ($reportDir in $reportDirs) {
     $svgDir = Join-Path $reportDir.FullName "StaticResources\RegisteredResources"
     if (-not (Test-Path $svgDir)) {
-        Write-Warning "RegisteredResources not found in: $($reportDir.FullName) — skipping."
+        Write-Warning "RegisteredResources not found in: $($reportDir.FullName) - skipping."
         continue
     }
 

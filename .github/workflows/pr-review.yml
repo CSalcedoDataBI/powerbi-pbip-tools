@@ -2,8 +2,13 @@
 # Copiar a:  .github/workflows/pr-review.yml
 # Requiere el secret del repo:  CLAUDE_CODE_OAUTH_TOKEN
 #   (generar una vez con:  claude setup-token  — usa tu cupo Max, se reinicia cada mes)
-# Guía completa:  docs/ci-cd/free-pr-review.md
-# Fallback gratis:  docs/ci-cd/pr-review.workflow.yml  (NVIDIA NIM)
+# Guía completa:  docs/ci-cd/free-pr-review.md   (en el repo fb-command-center)
+#
+# OJO con el "fallback gratis" de esa guía (pr-review.workflow.yml, NVIDIA NIM):
+# medido el 2026-08-28, sus DOS modelos ya no están en el catálogo de NIM
+# (meta/llama-3.1-70b-instruct y nvidia/llama-3.3-nemotron-super-49b-v1).
+# Desplegarlo tal cual falla en cada PR. Ver la issue #23 para los reemplazos
+# medidos y por qué ninguno sirve todavía como motor de review.
 name: PR Review (@claude)
 
 on:
@@ -29,6 +34,9 @@ jobs:
     timeout-minutes: 15
     # A nivel de job, no de workflow: si manana se anade otro job, no hereda el OIDC.
     permissions:
+      # pull-requests: write basta tambien para el comentario de track_progress: la API
+      # de GitHub acepta Issues:write O Pull requests:write para comentar en un PR, y el
+      # ejemplo oficial pr-review-comprehensive.yml de la action no pide issues:write.
       pull-requests: write
       contents: read
       # claude-code-action pide un token OIDC a GitHub para autenticarse; sin este
@@ -42,6 +50,9 @@ jobs:
       - uses: anthropics/claude-code-action@v1
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          # Sin esto la action corre el prompt entero y NO publica nada: medido en
+          # el run 33142445041, 14 turnos y $0.24 cuyo resultado murio en el log.
+          track_progress: true
           prompt: |
             Revisa este pull request como un senior engineer. Enfócate en:
             - Bugs y errores de lógica
