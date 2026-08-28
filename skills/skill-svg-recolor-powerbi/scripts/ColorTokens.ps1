@@ -39,47 +39,105 @@ $script:FragmentRefPattern =
 #     #fff:hover > path { fill: #0078D4 }
 #     ^^^^ selector                ^^^^^^^ color
 #
-# Two rules that were tried and are NOT enough, recorded so they are not retried:
-#   - matching selector shapes (#a{, #a,#b, #a:hover, #a .child, #a > path,
-#     #a[attr=v]) never converges; there is always another shape.
-#   - "previous non-whitespace char is ':'" flips the error instead of removing it:
-#     it silently SKIPS real colors in box-shadow: 0 0 2px #fff,
-#     linear-gradient(#fff,#000) and var(--x, #0078D4), so the script reports
-#     files as updated while their colors stay put.
+# Three rules were tried and are recorded here as insufficient, so nobody reaches
+# for them again:
+#   1. matching selector shapes (#a{, #a,#b, #a:hover, #a .child, #a > path,
+#      #a[attr=v]) never converges - there is always another shape.
+#   2. "previous non-whitespace char is ':'" flips the error instead of removing
+#      it: it SKIPS real colors in box-shadow: 0 0 2px #fff, var(--x, #fff) and
+#      linear-gradient(#fff,#000), so files get reported as updated while their
+#      colors stay put.
+#   3. depth plus backward scan over the raw text - right in principle, but it
+#      counts braces and semicolons living inside strings and url(), so
+#      content:"}" or a data: URL with a ';' throws the calculation off.
 #
-# What does converge is the smallest amount of CSS structure that answers the
-# question: a '#token' is a color when it sits in a DECLARATION VALUE, which means
-#   1. it is inside a braced block (declarations cannot exist at depth 0), and
-#   2. scanning back to the nearest '{', '}' or ';' finds a ':' first.
-# Comments are removed before either test, so a color in commented-out CSS is
-# neither reported nor rewritten.
-$script:StyleBlockPattern   = '(?is)<style\b[^>]*>(.*?)</style>'
-$script:CssCommentPattern   = '(?s)/\*.*?\*/'
+# What works is MASK FIRST, SCAN ONCE. Comment, string and url() bodies are
+# replaced by spaces of the same length, so every index in the document stays
+# valid, and then a single left-to-right pass records the ranges where a
+# declaration value is open. A token is a color when it survived masking and its
+# index falls inside one of those ranges. One pass per block instead of a rescan
+# per token, which also removes the quadratic cost on minified stylesheets.
+$script:StyleBlockPattern = '(?is)<style\b[^>]*>(.*?)</style>'
 
-function Test-CssValuePosition {
+function Get-CssValueRange {
     <#
     .SYNOPSIS
-      Is the '#' at $Index inside a CSS declaration value, given the style-block
-      text $Css that starts at $Offset in the document?
+      Mask a style block and return its declaration-value ranges.
+    .OUTPUTS
+      Hashtable with Masked (same-length text) and Ranges (array of @(start,end)),
+      both in coordinates local to the block.
     #>
-    param(
-        [Parameter(Mandatory)][AllowEmptyString()][string]$Css,
-        [Parameter(Mandatory)][int]$Local
-    )
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Css)
 
+    $chars = $Css.ToCharArray()
+    $n = $chars.Length
+    $i = 0
+
+    # --- Pass 1: blank comment, string and url() bodies ---------------------
+    while ($i -lt $n) {
+        $c = $chars[$i]
+
+        if ($c -eq [char]0x2F -and $i + 1 -lt $n -and $chars[$i + 1] -eq [char]0x2A) {
+            $j = $i + 2
+            while ($j + 1 -lt $n -and -not ($chars[$j] -eq [char]0x2A -and $chars[$j + 1] -eq [char]0x2F)) { $j++ }
+            $j = [Math]::Min($j + 2, $n)
+            for ($k = $i; $k -lt $j; $k++) { $chars[$k] = ' ' }
+            $i = $j
+            continue
+        }
+
+        if ($c -eq [char]0x22 -or $c -eq [char]0x27) {
+            $quote = $c
+            $j = $i + 1
+            while ($j -lt $n -and $chars[$j] -ne $quote) {
+                if ($chars[$j] -eq [char]0x5C -and $j + 1 -lt $n) { $j++ }
+                $j++
+            }
+            # Blank the BODY, keep the quotes so the structure still reads.
+            for ($k = $i + 1; $k -lt [Math]::Min($j, $n); $k++) { $chars[$k] = ' ' }
+            $i = [Math]::Min($j + 1, $n)
+            continue
+        }
+
+        # url( ... ): its body is a URL, and a '#' there is a fragment, not a color
+        if (($c -eq 'u' -or $c -eq 'U') -and $i + 4 -le $n -and
+            ((-join $chars[$i..($i + 3)]) -match '(?i)^url\(')) {
+            $j = $i + 4
+            while ($j -lt $n -and $chars[$j] -ne ')') { $j++ }
+            for ($k = $i + 4; $k -lt [Math]::Min($j, $n); $k++) { $chars[$k] = ' ' }
+            $i = [Math]::Min($j + 1, $n)
+            continue
+        }
+
+        $i++
+    }
+
+    $masked = -join $chars
+
+    # --- Pass 2: one walk recording where a declaration value is open -------
+    $ranges = @()
     $depth = 0
-    for ($k = 0; $k -lt $Local; $k++) {
-        if ($Css[$k] -eq '{') { $depth++ }
-        elseif ($Css[$k] -eq '}') { $depth-- }
+    $valueStart = -1
+    for ($i = 0; $i -lt $n; $i++) {
+        $c = $masked[$i]
+        if ($c -eq '{') { $depth++; $valueStart = -1 }
+        elseif ($c -eq '}') {
+            if ($valueStart -ge 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
+            $depth--
+        }
+        elseif ($c -eq ';') {
+            if ($valueStart -ge 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
+        }
+        elseif ($c -eq ':' -and $depth -ge 1 -and $valueStart -lt 0) {
+            # Declarations only exist inside a block. Depth 0 is selector
+            # territory, which is what keeps 'a:hover #ABCDEF{...}' a selector
+            # even though scanning back would find the colon of ':hover'.
+            $valueStart = $i + 1
+        }
     }
-    if ($depth -lt 1) { return $false }   # depth 0 is selector territory
+    if ($valueStart -ge 0) { $ranges += , @($valueStart, $n) }
 
-    for ($k = $Local - 1; $k -ge 0; $k--) {
-        $ch = $Css[$k]
-        if ($ch -eq ':') { return $true }
-        if ($ch -eq '{' -or $ch -eq '}' -or $ch -eq ';') { return $false }
-    }
-    return $false
+    return @{ Masked = $masked; Ranges = $ranges }
 }
 
 function Get-ColorTokenMatch {
@@ -91,15 +149,10 @@ function Get-ColorTokenMatch {
     #>
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
 
-    # Style blocks, with their comments blanked out. Blanking rather than deleting
-    # keeps every index in the original document valid.
-    $styleSpans = @()
-    $cssBlank = $Text
+    # Each style block is masked and scanned ONCE, not re-scanned per token.
+    $styleInfo = @()
     foreach ($r in [regex]::Matches($Text, $script:StyleBlockPattern)) {
-        $styleSpans += , @($r.Index, ($r.Index + $r.Length))
-    }
-    foreach ($c in [regex]::Matches($Text, $script:CssCommentPattern)) {
-        $cssBlank = $cssBlank.Remove($c.Index, $c.Length).Insert($c.Index, (' ' * $c.Length))
+        $styleInfo += , @{ Start = $r.Index; End = ($r.Index + $r.Length); Info = (Get-CssValueRange -Css $r.Value) }
     }
 
     $refSpans = @()
@@ -118,12 +171,19 @@ function Get-ColorTokenMatch {
         }
 
         if (-not $inside) {
-            foreach ($span in $styleSpans) {
-                if ($m.Index -ge $span[0] -and $m.Index -lt $span[1]) {
-                    # Inside a comment (blanked above), or not in value position.
-                    if ($cssBlank[$m.Index] -ne '#') { $inside = $true }
-                    elseif (-not (Test-CssValuePosition -Css $cssBlank.Substring($span[0], $span[1] - $span[0]) `
-                                                       -Local ($m.Index - $span[0]))) { $inside = $true }
+            foreach ($block in $styleInfo) {
+                if ($m.Index -ge $block.Start -and $m.Index -lt $block.End) {
+                    $local = $m.Index - $block.Start
+                    # Masked away (comment, string body, url body), or outside every
+                    # declaration-value range: not a color either way.
+                    if ($block.Info.Masked[$local] -ne '#') { $inside = $true }
+                    else {
+                        $inValue = $false
+                        foreach ($range in $block.Info.Ranges) {
+                            if ($local -ge $range[0] -and $local -lt $range[1]) { $inValue = $true; break }
+                        }
+                        if (-not $inValue) { $inside = $true }
+                    }
                     break
                 }
             }

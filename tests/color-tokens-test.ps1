@@ -152,6 +152,27 @@ try {
         -Ok ($inRoot.Count -ge 1 -and $copied.Count -eq $originals.Count) `
         -Detail "copiados $($copied.Count) de $($originals.Count) originales"
 
+    # --- CSS classification, at the unit level ---------------------------------
+    # Round 7 found five ways the CSS scan gave a wrong answer, all of them about
+    # delimiters living inside strings and url(). These pin each one: the table is
+    # (svg text -> exactly the tokens that must be treated as colors).
+    . (Join-Path $scripts 'ColorTokens.ps1')
+    $cssCases = @(
+        @{ n = 'hex in a content string is text';       t = '<svg><style>.a::before{content:"#fff";fill:#000}</style></svg>';                       e = '#000' }
+        @{ n = 'hex in a url() fragment is an id';      t = '<svg><style>.a{background-image:url("/s.svg#fff");fill:#000}</style></svg>';           e = '#000' }
+        @{ n = 'a brace inside a string is not a brace'; t = '<svg><style>.a::before{content:"}";fill:#fff}</style></svg>';                          e = '#fff' }
+        @{ n = 'a semicolon in a data URL is not one';   t = '<svg><style>.a{background:url("data:image/svg+xml;utf8,x");fill:#fff}</style></svg>';  e = '#fff' }
+        @{ n = 'selector vs value in one rule';          t = '<svg><style>#fff:hover{fill:#000}</style></svg>';                                      e = '#000' }
+        @{ n = 'var() and gradient stops are colors';    t = '<svg><style>.a{fill:var(--x, #111)}.b{background:linear-gradient(#222,#333)}</style></svg>'; e = '#111,#222,#333' }
+    )
+    $cssBad = @()
+    foreach ($case in $cssCases) {
+        $got = (@(@(Get-ColorTokenMatch -Text $case.t) | ForEach-Object { $_.Value }) -join ',')
+        if ($got -ne $case.e) { $cssBad += "$($case.n): [$got] != [$($case.e)]" }
+    }
+    Test-Check -Name 'clasificacion CSS: strings, url(), llaves y ; enganosos' -Ok ($cssBad.Count -eq 0) `
+        -Detail $(if ($cssBad.Count -eq 0) { "$($cssCases.Count)/$($cssCases.Count) casos" } else { $cssBad -join ' | ' })
+
     # --- CSS selectors survive a recolor that TARGETS their values -------------
     # This has to run after a recolor whose -From actually matches the selectors,
     # or the check passes without exercising anything. An auto-detect run (no
