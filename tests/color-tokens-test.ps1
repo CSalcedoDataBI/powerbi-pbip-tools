@@ -63,6 +63,9 @@ try {
         # A hex-looking CSS id selector inside a <style> block. Rewriting it breaks
         # the stylesheet while the matching id attribute stays put.
         'css.svg'   = '<svg><style>#fff{fill:#0078D4} #abc,#def{stroke:#0078D4}</style><path id="fff"/></svg>'
+        # Every selector shape that is NOT simply followed by { or , - chasing these
+        # one at a time is what round 5 showed does not converge.
+        'css2.svg'  = '<svg><style>#fff:hover{fill:#0078D4} #abc .child{fill:#0078D4} #def > path{fill:#0078D4} #012345[a=b]{fill:#0078D4}</style></svg>'
         'onlyother.svg' = '<svg><path fill="rgb(1,2,3)"/><path stroke="currentColor"/></svg>'
         'refs2.svg' = '<svg><rect fill="url(&apos;#fff&apos;)"/><rect fill="url( #0078D4 )"/><use href = "#fff"/><use xlink:href = &apos;#0078D4&apos;/><path fill="#0078D4"/></svg>'
     }
@@ -148,6 +151,27 @@ try {
     Test-Check -Name '-Backup copia de verdad los SVG, no solo crea la carpeta' `
         -Ok ($inRoot.Count -ge 1 -and $copied.Count -eq $originals.Count) `
         -Detail "copiados $($copied.Count) de $($originals.Count) originales"
+
+    # --- CSS selectors survive a recolor that TARGETS their values -------------
+    # This has to run after a recolor whose -From actually matches the selectors,
+    # or the check passes without exercising anything. An auto-detect run (no
+    # -From) is the harshest case: every color in the file is a target.
+    $cssDir = Join-Path ([System.IO.Path]::GetTempPath()) "pbip-css-$([guid]::NewGuid().ToString('N').Substring(0,6))"
+    $cssRes = Join-Path (Join-Path (Join-Path $cssDir 'C.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Path $cssRes -Force | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $cssRes 'sel.svg'),
+        '<svg><style>#fff:hover{fill:#0078D4} #abc .child{fill:#FFF} #def > path{stroke:#0078D4} #012345[a=b]{fill:#012345}</style></svg>',
+        $utf8NoBom)
+    & $recolor -PbipDir $cssDir -To '#DC143C' *>&1 | Out-Null
+    $sel = [System.IO.File]::ReadAllText((Join-Path $cssRes 'sel.svg'))
+    Remove-Item $cssDir -Recurse -Force -ErrorAction SilentlyContinue
+
+    Test-Check -Name 'selectores :hover / descendiente / > / [attr] sobreviven a un recolor que los apunta' `
+        -Ok (($sel -match '#fff:hover') -and ($sel -match '#abc \.child') -and
+             ($sel -match '#def > path') -and ($sel -match '#012345\[a=b\]')) -Detail $sel
+    Test-Check -Name 'y los valores de esas mismas reglas si cambiaron' `
+        -Ok (($sel -notmatch 'fill:#0078D4') -and ($sel -notmatch 'stroke:#0078D4') -and
+             ($sel -match 'fill:#DC143C')) -Detail 'los fill:/stroke: pasaron a #DC143C'
 
     # --- recolor: warns even when there is nothing to rewrite (#12) ------------
     # The case where the warning matters most: every color is a notation this tool

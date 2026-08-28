@@ -34,12 +34,18 @@ $script:FragmentRefPattern =
     '(?i)(?:url\s*\(\s*(?:["'']|&apos;|&quot;)?\s*#[^)"''\s&]+' +
     '|(?:xlink:)?href\s*=\s*(?:["'']|&apos;|&quot;)\s*#[^"''\s>&]*)'
 
-# A '#token' in CSS selector position is an id selector, not a color:
-#   <style>#fff{fill:#0078D4}</style>
-# Rewriting it breaks the stylesheet while the matching id attribute stays put -
-# the same failure as a fragment reference, reached through CSS instead.
-# A real color is never followed by '{' or ','.
-$script:CssSelectorPattern = '#[0-9A-Za-z_-]+(?=\s*[{,])'
+# Inside a <style> block, CSS has TWO uses for '#' and only one of them is a color:
+#
+#     #fff:hover > path { fill: #0078D4 }
+#     ^^^^ id selector                ^^^^^^^ color
+#
+# Chasing selector shapes one at a time does not converge - #a{, #a,#b, #a:hover,
+# #a .child, #a > path, #a[attr=v] are all the same thing. The rule that does
+# converge is positional: a '#token' in a style block is a COLOR only when it sits
+# in value position, i.e. the previous non-whitespace character is ':'. Everything
+# else there is a selector, and rewriting one breaks the stylesheet while the
+# matching id attribute stays put.
+$script:StyleBlockPattern = '(?is)<style\b[^>]*>.*?</style>'
 
 function Get-ColorTokenMatch {
     <#
@@ -50,10 +56,12 @@ function Get-ColorTokenMatch {
     #>
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
 
-    $refSpans = @()
-    foreach ($r in [regex]::Matches($Text, $script:CssSelectorPattern)) {
-        $refSpans += , @($r.Index, ($r.Index + $r.Length))
+    $styleSpans = @()
+    foreach ($r in [regex]::Matches($Text, $script:StyleBlockPattern)) {
+        $styleSpans += , @($r.Index, ($r.Index + $r.Length))
     }
+
+    $refSpans = @()
     foreach ($r in [regex]::Matches($Text, $script:FragmentRefPattern)) {
         # Parentheses required: PowerShell's comma binds tighter than +, so
         # @($a, $a + $b) parses as ($a, $a) + $b and yields THREE elements.
@@ -67,6 +75,19 @@ function Get-ColorTokenMatch {
         foreach ($span in $refSpans) {
             if ($m.Index -ge $span[0] -and $m.Index -lt $span[1]) { $inside = $true; break }
         }
+
+        if (-not $inside) {
+            foreach ($span in $styleSpans) {
+                if ($m.Index -ge $span[0] -and $m.Index -lt $span[1]) {
+                    # In a style block: value position or selector?
+                    $j = $m.Index - 1
+                    while ($j -ge 0 -and [char]::IsWhiteSpace($Text[$j])) { $j-- }
+                    if ($j -lt 0 -or $Text[$j] -ne ':') { $inside = $true }
+                    break
+                }
+            }
+        }
+
         if (-not $inside) { $keep += $m }
     }
     # No leading comma: ',@()' returns an array CONTAINING an empty array, and the
