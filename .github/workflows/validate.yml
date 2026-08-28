@@ -1,6 +1,6 @@
 # Validacion mecanica de los scripts PowerShell del repo.
 # Determinista y gratis: no consume cupo de ningun LLM.
-#   1. PSScriptAnalyzer sobre skills/**/scripts/*.ps1
+#   1. PSScriptAnalyzer sobre skills/ y tests/ (version fijada)
 #   2. Smoke test de detect-colors + recolor contra una copia de examples/Demo
 name: Validate scripts
 
@@ -11,7 +11,7 @@ on:
     # No hay check requerido en este repo, asi que una PR que no toque estas
     # rutas simplemente no dispara el workflow y no se queda colgada esperandolo.
     paths:
-      - 'skills/**/scripts/**'
+      - 'skills/**/*.ps1'
       - 'tests/**'
       - 'examples/Demo/**'
       - 'PSScriptAnalyzerSettings.psd1'
@@ -24,6 +24,9 @@ concurrency:
 permissions:
   contents: read
 
+env:
+  PSSA_VERSION: '1.25.0'
+
 jobs:
   validate:
     runs-on: ubuntu-latest
@@ -35,29 +38,41 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.local/share/powershell/Modules
-          key: psscriptanalyzer-${{ runner.os }}-v1
+          key: psscriptanalyzer-${{ runner.os }}-${{ env.PSSA_VERSION }}
 
       - name: Install PSScriptAnalyzer
         shell: pwsh
         run: |
-          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
-            Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -AllowClobber
+          # Pinned on purpose. The lint fails on Warning, so an unpinned analyzer
+          # could add a rule overnight and redden a PR that changed nothing.
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer | Where-Object Version -eq $env:PSSA_VERSION)) {
+            Install-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION -Scope CurrentUser -Force -AllowClobber
           }
-          Write-Output "PSScriptAnalyzer $((Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -First 1).Version)"
+          Write-Output "PSScriptAnalyzer $env:PSSA_VERSION"
 
       - name: Lint PowerShell scripts
         shell: pwsh
         run: |
-          $results = Invoke-ScriptAnalyzer -Path skills -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
-          if ($results) {
-            $results | Format-Table Severity, RuleName, ScriptName, Line, Message -AutoSize -Wrap
+          Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
+          # tests/ is linted too: the harness can carry the same class of bug it exists to catch.
+          $results = @('skills','tests') | ForEach-Object {
+            Invoke-ScriptAnalyzer -Path $_ -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+          }
+          $blocking = @($results | Where-Object { $_.Severity -in 'Error','Warning' })
+          $advisory  = @($results | Where-Object { $_.Severity -eq 'Information' })
+          if ($advisory) {
+            Write-Output "Information (no bloquea): $($advisory.Count)"
+            $advisory | Format-Table RuleName, ScriptName, Line -AutoSize
+          }
+          if ($blocking) {
+            $blocking | Format-Table Severity, RuleName, ScriptName, Line, Message -AutoSize -Wrap
             # Warnings fallan a proposito: el bug que motivo este workflow
             # (PSAvoidAssignmentToAutomaticVariable) es severidad Warning, asi que
             # fallar solo en Error dejaria pasar exactamente lo que vino a atrapar.
-            Write-Output "::error::PSScriptAnalyzer: $($results.Count) hallazgo(s)."
+            Write-Output "::error::PSScriptAnalyzer: $($blocking.Count) hallazgo(s) bloqueante(s)."
             exit 1
           }
-          Write-Output "PSScriptAnalyzer: sin hallazgos."
+          Write-Output "PSScriptAnalyzer: sin hallazgos bloqueantes."
 
       - name: Smoke test (detect-colors + recolor)
         shell: pwsh
