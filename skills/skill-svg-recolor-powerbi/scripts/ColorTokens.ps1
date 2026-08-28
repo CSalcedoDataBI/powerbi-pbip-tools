@@ -59,6 +59,18 @@ $script:FragmentRefPattern =
 # per token, which also removes the quadratic cost on minified stylesheets.
 $script:StyleBlockPattern = '(?is)<style\b[^>]*>(.*?)</style>'
 
+# Regions of an SVG that carry TEXT, not paint. A hex string in a comment, a
+# description or a script is prose or code, and rewriting it changes something
+# the user never asked to change while the rendered image looks identical.
+#
+# Note the deliberate limit: outside these regions and outside <style>, ANY hex
+# token is treated as a color. That is what makes the tool work on the attribute
+# soup real icons are made of, and it is documented in the skill README rather
+# than narrowed by guesswork about which attributes may carry paint.
+$script:NonPaintPattern =
+    '(?is)<!--.*?-->|<script\b[^>]*>.*?</script>|<desc\b[^>]*>.*?</desc>' +
+    '|<title\b[^>]*>.*?</title>|<metadata\b[^>]*>.*?</metadata>'
+
 function Get-CssValueRange {
     <#
     .SYNOPSIS
@@ -103,7 +115,11 @@ function Get-CssValueRange {
         if (($c -eq 'u' -or $c -eq 'U') -and $i + 4 -le $n -and
             ((-join $chars[$i..($i + 3)]) -match '(?i)^url\(')) {
             $j = $i + 4
-            while ($j -lt $n -and $chars[$j] -ne ')') { $j++ }
+            while ($j -lt $n -and $chars[$j] -ne ')') {
+                # An unquoted URL may escape its closing paren: url(foo\)#id)
+                if ($chars[$j] -eq [char]0x5C -and $j + 1 -lt $n) { $j++ }
+                $j++
+            }
             for ($k = $i + 4; $k -lt [Math]::Min($j, $n); $k++) { $chars[$k] = ' ' }
             $i = [Math]::Min($j + 1, $n)
             continue
@@ -118,15 +134,23 @@ function Get-CssValueRange {
     $ranges = @()
     $depth = 0
     $valueStart = -1
+    $valueBrace = 0     # braces opened INSIDE the value that is currently open
     for ($i = 0; $i -lt $n; $i++) {
         $c = $masked[$i]
-        if ($c -eq '{') { $depth++; $valueStart = -1 }
+        if ($c -eq '{') {
+            # A custom property may legally carry a balanced block as its value:
+            #   :root { --palette: {#ABCDEF}; fill: #000 }
+            # Treating that brace as a rule boundary would close the declaration
+            # and hide the color inside it.
+            if ($valueStart -ge 0) { $valueBrace++ } else { $depth++ }
+        }
         elseif ($c -eq '}') {
-            if ($valueStart -ge 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
-            $depth--
+            if ($valueBrace -gt 0) { $valueBrace-- }
+            elseif ($valueStart -ge 0) { $ranges += , @($valueStart, $i); $valueStart = -1; $depth-- }
+            else { $depth-- }
         }
         elseif ($c -eq ';') {
-            if ($valueStart -ge 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
+            if ($valueStart -ge 0 -and $valueBrace -eq 0) { $ranges += , @($valueStart, $i); $valueStart = -1 }
         }
         elseif ($c -eq ':' -and $depth -ge 1 -and $valueStart -lt 0) {
             # Declarations only exist inside a block. Depth 0 is selector
@@ -156,6 +180,9 @@ function Get-ColorTokenMatch {
     }
 
     $refSpans = @()
+    foreach ($r in [regex]::Matches($Text, $script:NonPaintPattern)) {
+        $refSpans += , @($r.Index, ($r.Index + $r.Length))
+    }
     foreach ($r in [regex]::Matches($Text, $script:FragmentRefPattern)) {
         # Parentheses required: PowerShell's comma binds tighter than +, so
         # @($a, $a + $b) parses as ($a, $a) + $b and yields THREE elements.

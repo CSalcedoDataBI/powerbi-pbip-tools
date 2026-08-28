@@ -141,6 +141,17 @@ Fragment references are never touched: `url(#fff)`, `href="#mask"` and
 which is ordinary SVGO output. Rewriting one leaves a live reference pointing at
 nothing while its `id` attribute stays put.
 
+Text that is not paint is left alone: XML comments, and the contents of
+`<desc>`, `<title>`, `<metadata>` and `<script>`. Inside a `<style>` block the
+scripts tell a selector from a declaration value, so `#fff:hover { fill: #0078D4 }`
+has exactly one color in it. Commented-out CSS, CSS strings and `url()` bodies
+are not colors either.
+
+**Documented limit:** anywhere else, any hex token is treated as a color. These
+are icon files made of attribute soup, and guessing which attributes may carry
+paint would miss real ones. If you keep hex strings somewhere unusual in your
+SVGs, run with `-WhatIf` first.
+
 File encoding is preserved rather than imposed: a file that arrived without a BOM
 is written back without one, a file that had one keeps it, and a UTF-16 file is
 skipped with a warning instead of being silently re-encoded as UTF-8.

@@ -163,6 +163,12 @@ try {
         @{ n = 'a brace inside a string is not a brace'; t = '<svg><style>.a::before{content:"}";fill:#fff}</style></svg>';                          e = '#fff' }
         @{ n = 'a semicolon in a data URL is not one';   t = '<svg><style>.a{background:url("data:image/svg+xml;utf8,x");fill:#fff}</style></svg>';  e = '#fff' }
         @{ n = 'selector vs value in one rule';          t = '<svg><style>#fff:hover{fill:#000}</style></svg>';                                      e = '#000' }
+        @{ n = 'escaped paren in an unquoted url()'; t = '<svg><style>.x{fill:url(foo\)#ABCDEF);stroke:#000}</style></svg>';                         e = '#000' }
+        @{ n = 'custom property with a block value'; t = '<svg><style>:root{--palette: {#ABCDEF};fill:#000}</style></svg>';                          e = '#ABCDEF,#000' }
+        @{ n = 'XML comment is prose';               t = '<svg><!-- brand #0078D4 --><path fill="#111"/></svg>';                                     e = '#111' }
+        @{ n = 'desc and metadata are prose';        t = '<svg><desc>note #0078D4</desc><metadata>{"s":"#0078D4"}</metadata><path fill="#111"/></svg>'; e = '#111' }
+        @{ n = 'script content is code';             t = '<svg><script>const c="#0078D4";</script><path fill="#111"/></svg>';                        e = '#111' }
+        @{ n = 'plain attributes still work';        t = '<svg><path fill="#0078D4"/><rect fill="url(#g)"/></svg>';                                  e = '#0078D4' }
         @{ n = 'var() and gradient stops are colors';    t = '<svg><style>.a{fill:var(--x, #111)}.b{background:linear-gradient(#222,#333)}</style></svg>'; e = '#111,#222,#333' }
     )
     $cssBad = @()
