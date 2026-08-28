@@ -1,0 +1,64 @@
+# Validacion mecanica de los scripts PowerShell del repo.
+# Determinista y gratis: no consume cupo de ningun LLM.
+#   1. PSScriptAnalyzer sobre skills/**/scripts/*.ps1
+#   2. Smoke test de detect-colors + recolor contra una copia de examples/Demo
+name: Validate scripts
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+    # Solo cuando cambia algo que estas comprobaciones puedan romper.
+    # No hay check requerido en este repo, asi que una PR que no toque estas
+    # rutas simplemente no dispara el workflow y no se queda colgada esperandolo.
+    paths:
+      - 'skills/**/scripts/**'
+      - 'tests/**'
+      - 'examples/Demo/**'
+      - 'PSScriptAnalyzerSettings.psd1'
+      - '.github/workflows/validate.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Cache PSScriptAnalyzer
+        uses: actions/cache@v6
+        with:
+          path: ~/.local/share/powershell/Modules
+          key: psscriptanalyzer-${{ runner.os }}-v1
+
+      - name: Install PSScriptAnalyzer
+        shell: pwsh
+        run: |
+          if (-not (Get-Module -ListAvailable PSScriptAnalyzer)) {
+            Install-Module PSScriptAnalyzer -Scope CurrentUser -Force -AllowClobber
+          }
+          Write-Output "PSScriptAnalyzer $((Get-Module -ListAvailable PSScriptAnalyzer | Select-Object -First 1).Version)"
+
+      - name: Lint PowerShell scripts
+        shell: pwsh
+        run: |
+          $results = Invoke-ScriptAnalyzer -Path skills -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+          if ($results) {
+            $results | Format-Table Severity, RuleName, ScriptName, Line, Message -AutoSize -Wrap
+            # Warnings fallan a proposito: el bug que motivo este workflow
+            # (PSAvoidAssignmentToAutomaticVariable) es severidad Warning, asi que
+            # fallar solo en Error dejaria pasar exactamente lo que vino a atrapar.
+            Write-Output "::error::PSScriptAnalyzer: $($results.Count) hallazgo(s)."
+            exit 1
+          }
+          Write-Output "PSScriptAnalyzer: sin hallazgos."
+
+      - name: Smoke test (detect-colors + recolor)
+        shell: pwsh
+        run: ./tests/smoke-test.ps1
