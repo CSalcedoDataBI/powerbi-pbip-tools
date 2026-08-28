@@ -186,7 +186,11 @@ foreach ($reportDir in $reportDirs) {
         Write-Host "[$($reportDir.Name)] Backup saved to: $backupDir"
     }
 
-    $plan.Add(@{ Report = $reportDir; Files = $files; EncodingOf = $encodingOf; SourceSet = $sourceSet })
+    # AllFileCount travels WITH the entry. $allFiles belongs to pass 1; reading
+    # it in pass 2 gets whatever the LAST report left in it, so every report
+    # printed the last one's denominator.
+    $plan.Add(@{ Report = $reportDir; Files = $files; EncodingOf = $encodingOf
+                 SourceSet = $sourceSet; AllFileCount = $allFiles.Count })
 }
 
 # ---- Pass 2: nothing below here can refuse; every backup is already on disk --
@@ -251,7 +255,7 @@ foreach ($entry in $plan) {
     # Same word as the summary: this counts files MODIFIED, not files that came
     # out fully recolored.
     $action = if ($WhatIf) { "Would modify" } else { "Modified" }
-    Write-Host "[$($reportDir.Name)] $action $changed/$($allFiles.Count) SVGs (-> $To)"
+    Write-Host "[$($reportDir.Name)] $action $changed/$($entry.AllFileCount) SVGs (-> $To)"
 }
 
 # Every .Report was skipped for lack of RegisteredResources: nothing was even

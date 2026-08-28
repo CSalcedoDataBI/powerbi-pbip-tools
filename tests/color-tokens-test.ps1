@@ -381,6 +381,22 @@ try {
     Test-Check -Name 'un archivo de solo BOM no se descarta como no-UTF-8' `
         -Ok ($bomOut -match '2 scanned \(2 found\)') -Detail (($bomOut -split "`n" | Where-Object { $_ -match 'SVGs' }) -join '')
 
+    # --- each report reports its OWN count -------------------------------------
+    # The two-pass split introduced this: $allFiles belongs to pass 1, so pass 2
+    # read whatever the last report left in it and printed that denominator for
+    # every report.
+    $mcDir = Get-ScopedTempPath -Prefix 'pbip-count'
+    $mcA = Join-Path (Join-Path (Join-Path $mcDir 'A.Report') 'StaticResources') 'RegisteredResources'
+    $mcB = Join-Path (Join-Path (Join-Path $mcDir 'B.Report') 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Force -Path $mcA, $mcB | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $mcA 'one.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $mcB 'one.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    [System.IO.File]::WriteAllText((Join-Path $mcB 'two.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    $mcOut = (& $recolor -PbipDir $mcDir -To '#DC143C' *>&1 | Out-String)
+    Test-Check -Name 'cada reporte imprime su propio denominador' `
+        -Ok (($mcOut -match '\[A\.Report\] Modified 1/1') -and ($mcOut -match '\[B\.Report\] Modified 2/2')) `
+        -Detail (($mcOut -split "`n" | Where-Object { $_ -match 'Modified' }) -join ' | ')
+
     # --- -Backup is all-or-nothing across reports ------------------------------
     # A backup that fails on the SECOND report must not leave the first one
     # already rewritten: that is a half-recolored project plus a failure message.
