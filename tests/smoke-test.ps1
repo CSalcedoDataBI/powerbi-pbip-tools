@@ -9,14 +9,15 @@
   Checks:
     1. detect-colors.ps1 runs without throwing and reports at least one #RRGGBB.
     2. What it reports matches the files on disk (ground truth, not self-report).
-    3. recolor.ps1 changes MORE than 0 files, verified ON DISK.
-    4. A second identical run changes EXACTLY 0 files (idempotency).
-    5. A -From color that is not present changes 0 files.
+    3. recolor.ps1 rewrites the files, verified ON DISK.
+    4. A second identical run leaves the SVG tree byte-identical (idempotency).
+    5. A -From color that is not present leaves the tree byte-identical.
     6. detect-colors.ps1 afterwards reports the target and not the source.
 
-  Checks 2 and 3 read the files directly instead of trusting the scripts' own
+  Every assertion about what changed reads the files, never the scripts' own
   printed counts. A smoke test that believes the thing it is testing proves
-  nothing when that thing is what is broken.
+  nothing when that thing is what is broken - a recolor that rewrote files and
+  printed "0 SVGs actualizados" would pass a report-reading check.
 
   This is SMOKE coverage, not behavioral coverage: the error paths of both
   scripts (missing .Report, missing RegisteredResources, malformed hex) are
@@ -75,6 +76,21 @@ function Get-FileCountWithColor {
     return $n
 }
 
+# Fingerprint of every SVG's CONTENT under the project. Two runs that leave this
+# equal changed nothing on disk, whatever the script printed about itself.
+function Get-TreeHash {
+    param([string]$Root)
+    $sb = [System.Text.StringBuilder]::new()
+    foreach ($f in (Get-ChildItem $Root -Recurse -Filter '*.svg' -File | Sort-Object FullName)) {
+        [void]$sb.AppendLine($f.FullName.Substring($Root.Length))
+        [void]$sb.AppendLine((Get-FileHash $f.FullName -Algorithm SHA256).Hash)
+    }
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($sb.ToString())
+    $sha = [System.Security.Cryptography.SHA256]::Create()
+    try { return [BitConverter]::ToString($sha.ComputeHash($bytes)).Replace('-', '') }
+    finally { $sha.Dispose() }
+}
+
 # Parse the color lines out of detect-colors' report.
 function Get-ReportedColor {
     param([string]$Text)
@@ -109,7 +125,11 @@ try {
     if ($colors.Count -eq 0) { throw 'Sin colores detectados: el resto del test no tiene sentido.' }
 
     $source = $colors[0]
-    if ($source -eq $TargetColor.ToUpper()) { throw "El color objetivo $TargetColor ya esta en el proyecto; elige otro." }
+    # -contains, not -eq against $colors[0]: the target colliding with ANY color already
+    # present breaks check 3's arithmetic, not just a collision with the source.
+    if ($colors -contains $TargetColor.ToUpper()) {
+        throw "El color objetivo $TargetColor ya esta en el proyecto ($($colors -join ', ')); elige otro."
+    }
 
     # --- 2. the report matches the disk --------------------------------------
     $onDisk = Get-FileCountWithColor -Root $work -Color $source
@@ -124,19 +144,28 @@ try {
     Test-Check -Name 'recolor reescribe los archivos en disco' -Ok ($tgtAfter -eq $onDisk -and $srcAfter -eq 0) -Detail `
         "objetivo en $tgtAfter archivo(s), origen queda en $srcAfter"
 
-    # --- 4. idempotency -------------------------------------------------------
-    $out4 = & $recolor -PbipDir $work -From $source -To $TargetColor *>&1 | Out-String
-    $m4 = [regex]::Match($out4, '(\d+)\s*/\s*(\d+)\s+SVGs')
-    $changed2 = if ($m4.Success) { [int]$m4.Groups[1].Value } else { -1 }
-    Test-Check -Name 'segunda pasada identica cambia 0 archivos' -Ok ($changed2 -eq 0) -Detail "segunda pasada: $changed2 archivo(s)"
+    # --- 4. idempotency, verified ON DISK -------------------------------------
+    # The script's own "0 / N SVGs" line is not evidence here: if it rewrote files
+    # and printed 0, trusting the print is exactly the failure this check is for.
+    $hashBefore = Get-TreeHash -Root $work
+    & $recolor -PbipDir $work -From $source -To $TargetColor *>&1 | Out-Null
+    $hashAfter = Get-TreeHash -Root $work
+    Test-Check -Name 'segunda pasada identica no toca ningun archivo' -Ok ($hashBefore -eq $hashAfter) `
+        -Detail "hash del arbol $(if ($hashBefore -eq $hashAfter) { 'identico' } else { 'CAMBIO' })"
 
     # --- 5. a -From that is not present must be a no-op -----------------------
-    $absent = '#123456'
-    if ((Get-FileCountWithColor -Root $work -Color $absent) -eq 0) {
-        $out5 = & $recolor -PbipDir $work -From $absent -To '#654321' *>&1 | Out-String
-        $m5 = [regex]::Match($out5, '(\d+)\s*/\s*(\d+)\s+SVGs')
-        $changed3 = if ($m5.Success) { [int]$m5.Groups[1].Value } else { -1 }
-        Test-Check -Name '-From con un color ausente no cambia nada' -Ok ($changed3 -eq 0) -Detail "$absent : $changed3 archivo(s)"
+    # The sentinel is chosen from what is actually absent, so this check can never be
+    # skipped: a hardcoded one that turned up in the fixture would silently vanish.
+    $present = Get-ReportedColor -Text (& $detect -PbipDir $work *>&1 | Out-String)
+    $absent = @('#123456', '#ABCDEF', '#010203', '#FEDCBA') |
+        Where-Object { $_ -notin $present } | Select-Object -First 1
+    Test-Check -Name 'hay un color ausente con el que probar el no-op' -Ok ($null -ne $absent) `
+        -Detail "centinela: $absent"
+    if ($absent) {
+        $hashBefore2 = Get-TreeHash -Root $work
+        & $recolor -PbipDir $work -From $absent -To '#654321' *>&1 | Out-Null
+        Test-Check -Name '-From con un color ausente no toca ningun archivo' `
+            -Ok ($hashBefore2 -eq (Get-TreeHash -Root $work)) -Detail "centinela $absent"
     }
 
     # --- 6. detect-colors reflects the new state ------------------------------
