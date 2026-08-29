@@ -279,6 +279,11 @@ try {
         @{ t = '<svg data-fill="red"><path fill="#111"/></svg>';         e = 0 }   # not a paint attribute
         @{ t = '<svg><path prefill="red" fill="#111"/></svg>';           e = 0 }
         @{ t = '<svg><path data-stroke="blue" fill="#111"/></svg>';      e = 0 }
+        @{ t = '<svg data-note="fill:red"><path fill="#111"/></svg>';    e = 0 }   # prose in a data attribute
+        @{ t = '<svg aria-label="rgb(1,2,3)"><path fill="#111"/></svg>'; e = 0 }
+        @{ t = '<svg data-x="currentColor"><path fill="#111"/></svg>';   e = 0 }
+        @{ t = '<svg><path fill="rgb(1,2,3)"/></svg>';                   e = 1 }   # the real ones still count
+        @{ t = '<svg><path stroke="currentColor"/></svg>';               e = 1 }
     )
     $unsupBad = 0
     foreach ($case in $unsupCases) {

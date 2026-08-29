@@ -369,6 +369,22 @@ function Get-UnsupportedNotation {
         $paint = $paint.Remove($css.Index, $css.Length).Insert($css.Index, (-join $keepChars))
     }
 
+    # Only PAINT can hold a color. An attribute that is not a paint property and
+    # not style= carries text - a data- note, an aria-label, a title - and the
+    # words 'fill:red', 'rgb(' or 'currentColor' inside one are prose. Counting
+    # them made both scripts warn about colors that were never colors.
+    $paintAttrs = @('fill', 'stroke', 'stop-color', 'flood-color', 'lighting-color', 'style')
+    $attrPattern = '(?is)([A-Za-z_][A-Za-z0-9_:.-]*)(\s*=\s*)("[^"]*"|''[^'']*'')'
+    $paintChars2 = $paint.ToCharArray()
+    foreach ($a in [regex]::Matches($paint, $attrPattern)) {
+        if ($paintAttrs -notcontains $a.Groups[1].Value.ToLower()) {
+            $v = $a.Groups[3]
+            # Keep the quotes, blank what is between them.
+            for ($k = $v.Index + 1; $k -lt $v.Index + $v.Length - 1; $k++) { $paintChars2[$k] = ' ' }
+        }
+    }
+    $paint = -join $paintChars2
+
     $found = @{}
     foreach ($name in $script:UnsupportedPatterns.Keys) {
         $count = ([regex]::Matches($paint, $script:UnsupportedPatterns[$name])).Count
