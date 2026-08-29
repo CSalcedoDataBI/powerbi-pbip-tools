@@ -288,7 +288,7 @@ $script:UnsupportedPatterns = [ordered]@{
     # The denylist carries every CSS-wide and SVG paint keyword, plus a guard for
     # function calls: var(--brand) and context-fill are not named colors, and
     # reporting them makes the closing warning misleading.
-    'named color'  = '(?i)(?:fill|stroke|stop-color|flood-color|lighting-color)\s*[:=]\s*["'']?\s*' +
+    'named color'  = '(?i)(?<![A-Za-z0-9_-])(?:fill|stroke|stop-color|flood-color|lighting-color)\s*[:=]\s*["'']?\s*' +
                      '(?!none|inherit|initial|unset|revert|transparent|currentColor|context-fill|context-stroke|url\(|#)' +
                      '[A-Za-z][A-Za-z-]{2,}(?!\s*\()'
 }

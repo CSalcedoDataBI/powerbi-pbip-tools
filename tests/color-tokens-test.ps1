@@ -273,6 +273,10 @@ try {
         @{ t = '<svg><style>.a{stroke:currentColor}</style></svg>';      e = 1 }
         @{ t = '<svg><path fill="red"/></svg>';                          e = 1 }
         @{ t = '<svg><path style="fill:red"/></svg>';                    e = 1 }
+        @{ t = '<svg><stop stop-color="red"/></svg>';                    e = 1 }
+        @{ t = '<svg data-fill="red"><path fill="#111"/></svg>';         e = 0 }   # not a paint attribute
+        @{ t = '<svg><path prefill="red" fill="#111"/></svg>';           e = 0 }
+        @{ t = '<svg><path data-stroke="blue" fill="#111"/></svg>';      e = 0 }
     )
     $unsupBad = 0
     foreach ($case in $unsupCases) {
