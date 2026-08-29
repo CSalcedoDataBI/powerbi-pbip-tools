@@ -63,7 +63,11 @@ $script:FragmentRefPattern =
 # read as one unterminated CSS string, got blanked, and every color in it
 # vanished from the report without a word: '0 unique hex colors found' on a
 # file full of them.
-$script:StyleBlockPattern = '(?is)<style\b(?:"[^"]*"|''[^'']*''|[^>"''])*>(.*?)</style>'
+# CDATA-aware. Illustrator and friends wrap SVG CSS in <![CDATA[ ... ]]>, and
+# a '</style>' can then legally appear INSIDE it - in a comment, in a string.
+# A plain (.*?) stops at that one, so the rest of the stylesheet falls outside
+# every style block and its id selectors get treated as colors and rewritten.
+$script:StyleBlockPattern = '(?is)<style\b(?:"[^"]*"|''[^'']*''|[^>"''])*>(?:\s*<!\[CDATA\[(?<css>.*?)\]\]>\s*|(?<css>.*?))</style>'
 
 # Regions of an SVG that carry TEXT, not paint. A hex string in a comment, a
 # description or a script is prose or code, and rewriting it changes something
@@ -235,7 +239,7 @@ function Get-ColorTokenMatch {
         # Group 1 is the CSS itself. Passing $r.Value would include the '<style ...>'
         # tag, and then the first rule's prelude starts with '<' instead of '@' -
         # which is exactly how an at-rule stops being recognised as one.
-        $css = $r.Groups[1]
+        $css = $r.Groups['css']
         $styleInfo.Add(@{ Start = $css.Index; End = ($css.Index + $css.Length); Info = (Get-CssValueRange -Css $css.Value) })
     }
 
@@ -291,10 +295,12 @@ $script:UnsupportedPatterns = [ordered]@{
     'currentColor' = '(?i)\bcurrentColor\b'
     # Both the attribute form (fill="red") and the inline-style form
     # (style="fill:red"). Still not a CSS parser: a <style> block is out of reach.
-    # The denylist carries every CSS-wide and SVG paint keyword, plus a guard for
-    # function calls: var(--brand) and context-fill are not named colors, and
-    # reporting them makes the closing warning misleading.
-    'named color'  = '(?i)(?<![A-Za-z0-9_-])(?:fill|stroke|stop-color|flood-color|lighting-color)\s*[:=]\s*["'']?\s*' +
+    # Deliberately NOT called 'named color': this matches any word sitting in a
+    # paint position that is not hex and not a CSS-wide keyword. 'red' is a named
+    # color; 'redacted' is not a color at all - but both are paint values this
+    # tool did not rewrite, which is what the user needs told. Claiming they are
+    # named colors would be a label the pattern cannot back up.
+    'non-hex paint value' = '(?i)(?<![A-Za-z0-9_-])(?:fill|stroke|stop-color|flood-color|lighting-color)\s*[:=]\s*["'']?\s*' +
                      '(?!none|inherit|initial|unset|revert|transparent|currentColor|context-fill|context-stroke|url\(|#)' +
                      '[A-Za-z][A-Za-z-]{2,}(?!\s*\()'
 }
@@ -346,7 +352,7 @@ function Get-UnsupportedNotation {
     # 'currentColor' written inside a CSS comment, a CSS string or a url() body
     # is counted as a color left unrewritten, and the closing warning is wrong.
     foreach ($r in [regex]::Matches($paint, $script:StyleBlockPattern)) {
-        $css = $r.Groups[1]
+        $css = $r.Groups['css']
         $info = Get-CssValueRange -Css $css.Value
         # Keep ONLY the declaration values. A selector is not paint, so
         # 'path[fill=red]{fill:#0078D4}' must not report a named color: nothing

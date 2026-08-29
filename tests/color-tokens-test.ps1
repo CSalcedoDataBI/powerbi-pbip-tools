@@ -105,9 +105,9 @@ try {
 
     # --- detect: unsupported notations are reported (#12) ----------------------
     $printed = & $detect -PbipDir $work 6>&1 | Out-String
-    Test-Check -Name 'reporta rgb()/currentColor/named como no reescribibles' `
+    Test-Check -Name 'reporta rgb()/currentColor/no-hex como no reescribibles' `
         -Ok ($printed -match 'Not rewritable' -and $printed -match 'rgb\(\)' -and
-             $printed -match 'currentColor' -and $printed -match 'named color') `
+             $printed -match 'currentColor' -and $printed -match 'non-hex paint value') `
         -Detail 'las tres notaciones listadas, no solo la seccion'
 
     # --- recolor: 8-digit is NOT partially rewritten (#11) ---------------------
@@ -195,6 +195,7 @@ try {
         @{ n = 'CSS nesting: &:hover is a selector';  t = '<svg><style>g { &:hover #A12345 { fill: #A12345 } }</style></svg>';                        e = '#A12345' }
         @{ n = 'declaration-list at-rules hold colors'; t = '<svg><style>@property --brand{syntax:1;initial-value:#0078D4}</style></svg>';             e = '#0078D4' }
         @{ n = 'font-face is a declaration list';       t = '<svg><style>@font-face{src:url(a);color:#111}</style></svg>';                              e = '#111' }
+        @{ n = 'a </style> inside CDATA does not truncate'; t = '<svg><style><![CDATA[ /* </style> */ #ABCDEF { fill: #111111 } ]]></style></svg>'; e = '#111111' }
         @{ n = 'a > inside a style attribute value';  t = '<svg><style id="a>b">.c { fill: #0078D4 }</style></svg>';                                e = '#0078D4' }
         @{ n = 'and it does not break the masking';   t = '<svg><style id="a>b"> .c " { font-family: ": #111111 "; } </style></svg>';               e = '' }
         @{ n = 'at-rule block is selector territory'; t = '<svg><style>@media (min-width:1px){ a:hover #ABCDEF { fill:#000 } }</style></svg>';          e = '#000' }
@@ -325,8 +326,8 @@ try {
     $kw = @('<path style="fill:var(--brand)"/>', '<path fill="context-fill"/>',
             '<path fill="initial"/>', '<path stroke="unset"/>')
     $kwFalse = 0
-    foreach ($t in $kw) { if ((Get-UnsupportedNotation -Text $t)['named color']) { $kwFalse++ } }
-    $realNamed = (Get-UnsupportedNotation -Text '<path fill="red"/>')['named color']
+    foreach ($t in $kw) { if ((Get-UnsupportedNotation -Text $t)['non-hex paint value']) { $kwFalse++ } }
+    $realNamed = (Get-UnsupportedNotation -Text '<path fill="red"/>')['non-hex paint value']
     Test-Check -Name 'var()/context-fill/initial/unset no se reportan como color con nombre' `
         -Ok ($kwFalse -eq 0 -and $realNamed -eq 1) `
         -Detail "falsos positivos: $kwFalse / 'red' sigue detectado: $realNamed"

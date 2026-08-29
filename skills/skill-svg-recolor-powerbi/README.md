@@ -130,11 +130,13 @@ channel, so rewriting one must never touch the other.
 | `#RRGGBBAA`, `#RGBA` | ✅ | ✅ (as its own color) |
 | `rgb()` / `rgba()` | ✅ | ❌ |
 | `currentColor` | ✅ | ❌ |
-| Named colors (`red`, `black`) | ⚠️ | ❌ |
+| Any non-hex paint value (`red`, `inherit-ish` words) | ⚠️ | ❌ |
 
-⚠️ Named-color detection covers the attribute form (`fill="red"`) and the inline
-style form (`style="fill:red"`). It is not a CSS parser, so a color set inside a
-`<style>` block is not seen at all.
+⚠️ Reported as **non-hex paint value**, not as "named color": the check sees a word
+in a paint position that is not hex and not a CSS-wide keyword, so `red` and
+`redacted` both land there. It covers the attribute form (`fill="red"`), the inline
+style form (`style="fill:red"`) and declarations inside a `<style>` block, and it
+ignores the same word in a `data-` attribute or a `<desc>`.
 
 Fragment references are never touched: `url(#fff)`, `href="#mask"` and
 `xlink:href` keep their ids even when an id happens to look like a hex color,
