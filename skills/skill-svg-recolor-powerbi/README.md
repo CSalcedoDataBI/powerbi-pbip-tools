@@ -199,7 +199,7 @@ color is the failure that reporting exists to prevent.
    `<script>`.
 4. **Replaces whole tokens**: each match is swapped as a unit after normalising it, so `#FFF` and
    `#FFFFFF` count as one color while `#0078D4` and `#0078D4**80**` stay two.
-5. **Reports what it did not do**: `rgb()`, `currentColor` and named colors are counted and named,
+5. **Reports what it did not do**: `rgb()`, `currentColor` and any non-hex paint value are counted and named,
    because a silent skip is how a recolor ends up looking finished when it is not.
 
 ## 🧪 Running the checks
