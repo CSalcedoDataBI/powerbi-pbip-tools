@@ -195,6 +195,8 @@ try {
         @{ n = 'CSS nesting: &:hover is a selector';  t = '<svg><style>g { &:hover #A12345 { fill: #A12345 } }</style></svg>';                        e = '#A12345' }
         @{ n = 'declaration-list at-rules hold colors'; t = '<svg><style>@property --brand{syntax:1;initial-value:#0078D4}</style></svg>';             e = '#0078D4' }
         @{ n = 'font-face is a declaration list';       t = '<svg><style>@font-face{src:url(a);color:#111}</style></svg>';                              e = '#111' }
+        @{ n = 'a > inside a style attribute value';  t = '<svg><style id="a>b">.c { fill: #0078D4 }</style></svg>';                                e = '#0078D4' }
+        @{ n = 'and it does not break the masking';   t = '<svg><style id="a>b"> .c " { font-family: ": #111111 "; } </style></svg>';               e = '' }
         @{ n = 'at-rule block is selector territory'; t = '<svg><style>@media (min-width:1px){ a:hover #ABCDEF { fill:#000 } }</style></svg>';          e = '#000' }
         @{ n = 'nested at-rules';                    t = '<svg><style>@supports (x:y){@media (min-width:1px){ #FEDCBA:focus{fill:#111} }}</style></svg>'; e = '#111' }
         @{ n = 'at-rule without a block';            t = '<svg><style>@import url(a.css);.a{fill:#111}</style></svg>';                                 e = '#111' }

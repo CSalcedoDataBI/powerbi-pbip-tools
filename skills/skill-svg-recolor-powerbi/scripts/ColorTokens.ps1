@@ -57,7 +57,13 @@ $script:FragmentRefPattern =
 # declaration value is open. A token is a color when it survived masking and its
 # index falls inside one of those ranges. One pass per block instead of a rescan
 # per token, which also removes the quadratic cost on minified stylesheets.
-$script:StyleBlockPattern = '(?is)<style\b[^>]*>(.*?)</style>'
+# The open tag is parsed attribute-aware, not as [^>]*. A '>' is legal inside
+# an XML attribute value - <style id="a>b"> - and [^>]* stops at it, so the
+# capture began mid-attribute carrying a dangling quote. The whole block then
+# read as one unterminated CSS string, got blanked, and every color in it
+# vanished from the report without a word: '0 unique hex colors found' on a
+# file full of them.
+$script:StyleBlockPattern = '(?is)<style\b(?:"[^"]*"|''[^'']*''|[^>"''])*>(.*?)</style>'
 
 # Regions of an SVG that carry TEXT, not paint. A hex string in a comment, a
 # description or a script is prose or code, and rewriting it changes something
