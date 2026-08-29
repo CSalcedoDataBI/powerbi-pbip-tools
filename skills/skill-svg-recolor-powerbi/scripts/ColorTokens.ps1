@@ -291,21 +291,42 @@ function Get-ColorTokenMatch {
     return $keep.ToArray()
 }
 
-# Color notations this tool can see but deliberately does NOT rewrite. Reported so
-# the user knows they were left alone, instead of finding out in Power BI.
-$script:UnsupportedPatterns = [ordered]@{
-    'rgb()/rgba()' = '(?i)\brgba?\s*\('
-    'currentColor' = '(?i)\bcurrentColor\b'
-    # Both the attribute form (fill="red") and the inline-style form
-    # (style="fill:red"). Still not a CSS parser: a <style> block is out of reach.
-    # Deliberately NOT called 'named color': this matches any word sitting in a
-    # paint position that is not hex and not a CSS-wide keyword. 'red' is a named
-    # color; 'redacted' is not a color at all - but both are paint values this
-    # tool did not rewrite, which is what the user needs told. Claiming they are
-    # named colors would be a label the pattern cannot back up.
-    'non-hex paint value' = '(?i)(?<![A-Za-z0-9_-])(?:fill|stroke|stop-color|flood-color|lighting-color)\s*[:=]\s*["'']?\s*' +
-                     '(?!none|inherit|initial|unset|revert|transparent|currentColor|context-fill|context-stroke|url\(|#)' +
-                     '[A-Za-z][A-Za-z-]{2,}(?!\s*\()'
+# What this tool can rewrite is ONE thing: a hex color. So rather than enumerate
+# the notations it cannot - which is how hsl(), var(), hwb() and the fallback in
+# 'fill="url(#g) red"' all went unreported - it reads the PAINT VALUE and asks
+# whether a hex token is what it found.
+#
+# Anything else in a paint position gets reported, because the user needs to know
+# their icon kept its color. rgb()/rgba() and currentColor keep their own labels
+# since those are the two people recognise; everything else is grouped.
+# The unquoted alternative stops at '}' and '<' as well as at ';' and the quotes.
+# Without '}' it swallowed the closing brace of a CSS rule, so 'fill:#0078D4}'
+# stopped looking like a hex color and was reported as something left behind.
+$script:PaintValuePattern = '(?i)(?<![A-Za-z0-9_-])(?:fill|stroke|stop-color|flood-color|lighting-color)\s*[:=]\s*(?:"(?<v>[^"]*)"|''(?<v>[^'']*)''|(?<v>[^;"''>}<]+))'
+
+function Get-PaintValueKind {
+    <#
+    .SYNOPSIS
+      Classify one paint value: '' when this tool can handle it, otherwise the
+      label to report it under.
+    #>
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Value)
+
+    $v = $Value.Trim()
+    if (-not $v) { return '' }
+
+    # Keywords that are not colors at all: nothing was left unrewritten.
+    if ($v -match '(?i)^(none|inherit|initial|unset|revert|transparent|context-fill|context-stroke)$') { return '' }
+
+    # A bare reference to a gradient or pattern is normal, not a color left behind.
+    if ($v -match '(?i)^url\([^)]*\)$') { return '' }
+
+    # A hex color is exactly what this tool rewrites.
+    if ($v -match '^#[0-9A-Fa-f]{3,8}$') { return '' }
+
+    if ($v -match '(?i)rgba?\s*\(') { return 'rgb()/rgba()' }
+    if ($v -match '(?i)currentColor') { return 'currentColor' }
+    return 'non-hex paint value'
 }
 
 function Get-CanonicalHex {
@@ -395,9 +416,11 @@ function Get-UnsupportedNotation {
     $paint = -join $paintChars2
 
     $found = @{}
-    foreach ($name in $script:UnsupportedPatterns.Keys) {
-        $count = ([regex]::Matches($paint, $script:UnsupportedPatterns[$name])).Count
-        if ($count -gt 0) { $found[$name] = $count }
+    foreach ($m in [regex]::Matches($paint, $script:PaintValuePattern)) {
+        $kind = Get-PaintValueKind -Value $m.Groups['v'].Value
+        if ($kind) {
+            if ($found.ContainsKey($kind)) { $found[$kind]++ } else { $found[$kind] = 1 }
+        }
     }
     return $found
 }

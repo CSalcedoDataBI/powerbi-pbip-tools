@@ -130,13 +130,17 @@ channel, so rewriting one must never touch the other.
 | `#RRGGBBAA`, `#RGBA` | ✅ | ✅ (as its own color) |
 | `rgb()` / `rgba()` | ✅ | ❌ |
 | `currentColor` | ✅ | ❌ |
-| Any non-hex paint value (`red`, `inherit-ish` words) | ⚠️ | ❌ |
+| Anything else in a paint position — `red`, `hsl()`, `var()`, the fallback in `url(#g) red` | ✅ | ❌ |
+| `none`, `inherit`, `initial`, `unset`, `transparent`, a bare `url(#g)` | — | — (not colors) |
 
-⚠️ Reported as **non-hex paint value**, not as "named color": the check sees a word
-in a paint position that is not hex and not a CSS-wide keyword, so `red` and
-`redacted` both land there. It covers the attribute form (`fill="red"`), the inline
-style form (`style="fill:red"`) and declarations inside a `<style>` block, and it
-ignores the same word in a `data-` attribute or a `<desc>`.
+The check reads the **paint value** and asks whether it is a hex color this tool
+can rewrite. Anything else in that position is reported as **non-hex paint value** —
+`red`, `hsl(...)`, `var(--brand)`, or the `red` in `fill="url(#g) red"` — rather than
+matched against a list of notations, which is how `hsl()` and `var()` used to slip
+past unreported. Values that are not colors at all (`none`, `inherit`, a bare
+`url(#g)`) are silent, because nothing was left behind. It covers the attribute
+form, the inline `style=` form and declarations inside a `<style>` block, and it
+ignores the same words in a `data-` attribute or a `<desc>`.
 
 Fragment references are never touched: `url(#fff)`, `href="#mask"` and
 `xlink:href` keep their ids even when an id happens to look like a hex color,

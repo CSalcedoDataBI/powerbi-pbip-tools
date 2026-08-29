@@ -325,14 +325,28 @@ try {
         -Ok ($mvErr -match "'basura'" -and $mvErr -notmatch "'#DC143C','basura'") -Detail $mvErr.Trim()
 
     # --- keywords and functions are not named colors ---------------------------
-    $kw = @('<path style="fill:var(--brand)"/>', '<path fill="context-fill"/>',
-            '<path fill="initial"/>', '<path stroke="unset"/>')
+    # CSS-wide keywords are not colors, so nothing was left behind by them. But
+    # var(), hsl() and the fallback in 'url(#g) red' ARE paint this tool cannot
+    # rewrite, and staying quiet about those is the failure the warning exists for.
+    $kw = @('<path fill="context-fill"/>', '<path fill="initial"/>', '<path stroke="unset"/>',
+            '<path fill="none"/>', '<path fill="url(#g)"/>')
     $kwFalse = 0
-    foreach ($t in $kw) { if ((Get-UnsupportedNotation -Text $t)['non-hex paint value']) { $kwFalse++ } }
-    $realNamed = (Get-UnsupportedNotation -Text '<path fill="red"/>')['non-hex paint value']
-    Test-Check -Name 'var()/context-fill/initial/unset no se reportan como color con nombre' `
-        -Ok ($kwFalse -eq 0 -and $realNamed -eq 1) `
-        -Detail "falsos positivos: $kwFalse / 'red' sigue detectado: $realNamed"
+    foreach ($t in $kw) {
+        $tot = 0
+        foreach ($v in (Get-UnsupportedNotation -Text $t).Values) { $tot += $v }
+        if ($tot -ne 0) { $kwFalse++ }
+    }
+    $mustReport = @('<path style="fill:var(--brand)"/>', '<path fill="hsl(0,100%,50%)"/>',
+                    '<path fill="url(#g) red"/>', '<path fill="red"/>')
+    $missed = 0
+    foreach ($t in $mustReport) {
+        $tot = 0
+        foreach ($v in (Get-UnsupportedNotation -Text $t).Values) { $tot += $v }
+        if ($tot -eq 0) { $missed++ }
+    }
+    Test-Check -Name 'los keywords no cuentan, pero var()/hsl()/el fallback de url() si' `
+        -Ok ($kwFalse -eq 0 -and $missed -eq 0) `
+        -Detail "falsos positivos: $kwFalse / no reportados que deberian: $missed"
 
     # --- unsupported-notation counting uses the same CSS masking ---------------
     $cssStr = (Get-UnsupportedNotation -Text '<svg><style>.a{content:"rgb(";fill:#111}</style></svg>')
