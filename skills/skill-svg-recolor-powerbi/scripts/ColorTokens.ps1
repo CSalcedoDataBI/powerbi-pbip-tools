@@ -63,11 +63,14 @@ $script:FragmentRefPattern =
 # read as one unterminated CSS string, got blanked, and every color in it
 # vanished from the report without a word: '0 unique hex colors found' on a
 # file full of them.
-# CDATA-aware. Illustrator and friends wrap SVG CSS in <![CDATA[ ... ]]>, and
-# a '</style>' can then legally appear INSIDE it - in a comment, in a string.
-# A plain (.*?) stops at that one, so the rest of the stylesheet falls outside
-# every style block and its id selectors get treated as colors and rewritten.
-$script:StyleBlockPattern = '(?is)<style\b(?:"[^"]*"|''[^'']*''|[^>"''])*>(?:\s*<!\[CDATA\[(?<css>.*?)\]\]>\s*|(?<css>.*?))</style>'
+# CDATA-aware, and a CDATA section is ATOMIC wherever it sits. Illustrator and
+# friends wrap SVG CSS in <![CDATA[ ... ]]>, and a '</style>' can legally appear
+# inside one. A plain (.*?) stops at that one. An alternation that only allows
+# CDATA immediately before </style> falls back to the plain branch the moment any
+# CSS follows the ]]>. Either way the rest of the stylesheet lands OUTSIDE every
+# style block, where its id selectors are treated as colors and rewritten.
+# Same shape is used for <script> below, for the same reason.
+$script:StyleBlockPattern = '(?is)<style\b(?:"[^"]*"|''[^'']*''|[^>"''])*>(?<css>(?:<!\[CDATA\[.*?\]\]>|(?!</style>)(?s:.))*)</style>'
 
 # Regions of an SVG that carry TEXT, not paint. A hex string in a comment, a
 # description or a script is prose or code, and rewriting it changes something
@@ -78,7 +81,7 @@ $script:StyleBlockPattern = '(?is)<style\b(?:"[^"]*"|''[^'']*''|[^>"''])*>(?:\s*
 # soup real icons are made of, and it is documented in the skill README rather
 # than narrowed by guesswork about which attributes may carry paint.
 $script:NonPaintPattern =
-    '(?is)<!--.*?-->|<script\b[^>]*>.*?</script>|<desc\b[^>]*>.*?</desc>' +
+    '(?is)<!--.*?-->|<script\b[^>]*>(?:<!\[CDATA\[.*?\]\]>|(?!</script>)(?s:.))*</script>|<desc\b[^>]*>.*?</desc>' +
     '|<title\b[^>]*>.*?</title>|<metadata\b[^>]*>.*?</metadata>'
 
 function Get-CssValueRange {

@@ -195,6 +195,8 @@ try {
         @{ n = 'CSS nesting: &:hover is a selector';  t = '<svg><style>g { &:hover #A12345 { fill: #A12345 } }</style></svg>';                        e = '#A12345' }
         @{ n = 'declaration-list at-rules hold colors'; t = '<svg><style>@property --brand{syntax:1;initial-value:#0078D4}</style></svg>';             e = '#0078D4' }
         @{ n = 'font-face is a declaration list';       t = '<svg><style>@font-face{src:url(a);color:#111}</style></svg>';                              e = '#111' }
+        @{ n = 'CDATA with CSS after the ]]>';        t = '<svg><style><![CDATA[ #111 { content: "</style>" } ]]> #333 { fill: #444 } </style></svg>'; e = '#444' }
+        @{ n = 'script CDATA holding a </script>';   t = '<svg><script><![CDATA[ var a = "</script>"; var c = "#112233"; ]]></script><path fill="#0078D4"/></svg>'; e = '#0078D4' }
         @{ n = 'a </style> inside CDATA does not truncate'; t = '<svg><style><![CDATA[ /* </style> */ #ABCDEF { fill: #111111 } ]]></style></svg>'; e = '#111111' }
         @{ n = 'a > inside a style attribute value';  t = '<svg><style id="a>b">.c { fill: #0078D4 }</style></svg>';                                e = '#0078D4' }
         @{ n = 'and it does not break the masking';   t = '<svg><style id="a>b"> .c " { font-family: ": #111111 "; } </style></svg>';               e = '' }
@@ -434,6 +436,35 @@ try {
     Test-Check -Name 'si el backup falla en el 2o reporte, el 1o queda intacto' `
         -Ok ([System.IO.File]::ReadAllText($aPath) -match '#0078D4') `
         -Detail ([System.IO.File]::ReadAllText($aPath))
+
+    # --- a linked .Report is a link too ----------------------------------------
+    # The file-level guard does not cover this: the SVGs inside a junctioned
+    # .Report are ordinary files, so every one of them would be rewritten outside
+    # the project. Junctions need no Developer Mode, so this normally runs.
+    $jnDir = Get-ScopedTempPath -Prefix 'pbip-junction'
+    $jnOut = Get-ScopedTempPath -Prefix 'outside-junction'
+    $jnRes = Join-Path (Join-Path $jnOut 'StaticResources') 'RegisteredResources'
+    New-Item -ItemType Directory -Force -Path $jnRes | Out-Null
+    [System.IO.File]::WriteAllText((Join-Path $jnRes 'icon.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    New-Item -ItemType Directory -Force -Path $jnDir | Out-Null
+    $jnMade = $false
+    try {
+        New-Item -ItemType Junction -Path (Join-Path $jnDir 'External.Report') -Target $jnOut -ErrorAction Stop | Out-Null
+        $jnMade = $true
+    } catch { $jnMade = $false }
+
+    if ($jnMade) {
+        $prevEap3 = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        & $recolor -PbipDir $jnDir -To '#DC143C' *>&1 | Out-Null
+        $ErrorActionPreference = $prevEap3
+        Test-Check -Name 'un .Report enlazado no deja escribir fuera del proyecto' `
+            -Ok ([System.IO.File]::ReadAllText((Join-Path $jnRes 'icon.svg')) -match '#0078D4') `
+            -Detail 'el archivo externo quedo intacto'
+    } else {
+        Test-Check -Name 'un .Report enlazado no deja escribir fuera del proyecto' -Ok $true `
+            -Detail 'OMITIDO: este equipo no permite crear junctions'
+    }
 
     # --- a link is not a file this tool owns -----------------------------------
     # Creating a symlink needs Developer Mode or elevation on Windows, so the check

@@ -95,6 +95,15 @@ $filesWithUnsupported = @{}
 $plan = [System.Collections.Generic.List[object]]::new()
 
 foreach ($reportDir in $reportDirs) {
+    # The file-level link guard below is not enough on its own: a JUNCTION named
+    # 'External.Report' inside the project points at a folder elsewhere, and the
+    # SVGs it contains are ordinary files - not reparse points - so every one of
+    # them would be rewritten outside the project.
+    if ($reportDir.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+        Write-Warning "Skipped (linked .Report, writes would land outside the project): $($reportDir.Name)"
+        continue
+    }
+
     $svgDir = Join-PbipPath -ReportDir $reportDir.FullName
     if (-not (Test-Path -LiteralPath $svgDir)) {
         Write-Warning "RegisteredResources not found in: $($reportDir.FullName) - skipping."
