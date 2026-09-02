@@ -188,6 +188,31 @@ try {
         -Ok ((Get-Tmdl -Root $root) -eq $tmdlOnce -and (Get-VisualJson -Root $root) -eq $jsonOnce) `
         -Detail 'el base64 no se reescribe por reescribirse'
 
+    # --- dos corridas en el mismo segundo -------------------------------------
+    # El nombre del backup era solo timestamp al segundo. Dos invocaciones dentro
+    # de la misma ventana producian la misma ruta, New-Item lanzaba "already
+    # exists", y la corrida paraba con "Backup failed - NOTHING has been
+    # modified". En Linux CI pasaba siempre; en Windows nunca - asi sobrevive un
+    # defecto asi. Comprobado sobre la funcion, no sobre el reloj, para que la
+    # prueba no dependa de lo rapida que sea la maquina.
+    Import-Module (Join-Path $modules 'PbipIo.psm1') -Force
+    $names = 1..20 | ForEach-Object { Get-BackupPath -Root 'C:\tmp' -Name 'X' }
+    Test-Check -Name 'dos backups del mismo segundo no comparten nombre' `
+        -Ok (@($names | Sort-Object -Unique).Count -eq 20) `
+        -Detail "$(@($names | Sort-Object -Unique).Count)/20 rutas distintas"
+
+    # Y de extremo a extremo: dos recolores seguidos deben completar los dos.
+    $rootA = Copy-Fixture
+    $rootB = Copy-Fixture
+    & pwsh -NoProfile -File $recolor -PbipDir $rootA -To '#DC143C' -Scope All -Backup *>&1 | Out-Null
+    $exitA = $LASTEXITCODE
+    & pwsh -NoProfile -File $recolor -PbipDir $rootB -To '#DC143C' -Scope All -Backup *>&1 | Out-Null
+    $exitB = $LASTEXITCODE
+    Test-Check -Name 'dos recolores consecutivos con -Backup completan los dos' `
+        -Ok ($exitA -eq 0 -and $exitB -eq 0 -and
+             (Get-Tmdl -Root $rootB) -match '%23DC143C') `
+        -Detail "exit A=$exitA B=$exitB"
+
     # --- el color destino puede tener OTRA longitud ---------------------------
     # Todas las comprobaciones de arriba usan '#DC143C', que mide lo mismo que
     # '#0078D4'. Con esa longitud, un re-encodificado por indice pasa igual - y

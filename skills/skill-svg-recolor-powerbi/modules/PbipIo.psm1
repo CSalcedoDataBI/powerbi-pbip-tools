@@ -116,4 +116,29 @@ function Get-Utf8Encoding {
     return (New-Object System.Text.UTF8Encoding($Kind -eq 'Utf8Bom'))
 }
 
-Export-ModuleMember -Function Get-SvgFile, Join-PbipPath, Get-FileEncodingKind, Get-Utf8Encoding
+function Get-BackupPath {
+    <#
+    .SYNOPSIS
+      A backup directory name that two runs in the same second cannot share.
+    .DESCRIPTION
+      The timestamp alone was not enough. Two invocations landing in the same
+      second produced the same path, New-Item threw "already exists", and the
+      run stopped with "Backup failed - NOTHING has been modified yet". Measured:
+      on a fast machine (Linux CI) a test loop recoloring two fixtures back to
+      back hit it every time; on a slower one it never did, which is exactly how
+      a defect like this survives.
+
+      The fix is a short random suffix, not New-Item -Force: -Force would reuse
+      the existing directory and quietly mix two different runs' backups into
+      one folder, which is worse than failing - the user would restore a mixture.
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Root,
+        [Parameter(Mandatory)][string]$Name
+    )
+    $stamp  = Get-Date -Format 'yyyyMMdd_HHmmss'
+    $unique = [guid]::NewGuid().ToString('N').Substring(0, 6)
+    return (Join-Path $Root "pbip-recolor-backup_${Name}_${stamp}_${unique}")
+}
+
+Export-ModuleMember -Function Get-SvgFile, Join-PbipPath, Get-FileEncodingKind, Get-Utf8Encoding, Get-BackupPath

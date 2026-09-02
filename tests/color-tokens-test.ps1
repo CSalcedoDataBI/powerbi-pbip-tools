@@ -431,30 +431,37 @@ try {
         -Detail (($mcOut -split "`n" | Where-Object { $_ -match 'Modified' }) -join ' | ')
 
     # --- -Backup is all-or-nothing across reports ------------------------------
-    # A backup that fails on the SECOND report must not leave the first one
-    # already rewritten: that is a half-recolored project plus a failure message.
+    # A failed backup must leave EVERY report untouched, not just the one whose
+    # backup failed: the alternative is a half-recolored project plus an error
+    # message, which is worse than not running at all.
+    #
+    # This used to force the failure by occupying every backup name the second
+    # report could pick for the next 90 seconds. That stopped working, and for a
+    # good reason: backup directory names now carry a random suffix, because a
+    # name built only from a per-second timestamp meant two runs in the same
+    # second collided and the second refused to back up - reproduced, and it was
+    # reddening CI. So the failure is forced at the root instead: -BackupRoot
+    # points at a FILE, so creating a directory under it cannot succeed for any
+    # report.
     $paDir  = Get-ScopedTempPath -Prefix 'pbip-partial'
     $paBack = Get-ScopedTempPath -Prefix 'pbip-block'
-    New-Item -ItemType Directory -Force -Path $paBack | Out-Null
+    [System.IO.File]::WriteAllText($paBack, 'not a directory', $utf8NoBom)
     foreach ($r in 'A.Report', 'B.Report') {
         $rr = Join-Path (Join-Path (Join-Path $paDir $r) 'StaticResources') 'RegisteredResources'
         New-Item -ItemType Directory -Force -Path $rr | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $rr 'icon.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
     }
-    # Occupy every backup name B could pick for the next 90 seconds, so its
-    # New-Item throws while A's has already succeeded.
-    for ($i = 0; $i -lt 90; $i++) {
-        $stamp = (Get-Date).AddSeconds($i).ToString('yyyyMMdd_HHmmss')
-        New-Item -ItemType File -Force -Path (Join-Path $paBack "pbip-recolor-backup_B.Report_$stamp") | Out-Null
-    }
     $prevEap2 = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     & $recolor -PbipDir $paDir -To '#DC143C' -Backup -BackupRoot $paBack *>&1 | Out-Null
     $ErrorActionPreference = $prevEap2
-    $aPath = Join-Path (Join-Path (Join-Path (Join-Path $paDir 'A.Report') 'StaticResources') 'RegisteredResources') 'icon.svg'
-    Test-Check -Name 'si el backup falla en el 2o reporte, el 1o queda intacto' `
-        -Ok ([System.IO.File]::ReadAllText($aPath) -match '#0078D4') `
-        -Detail ([System.IO.File]::ReadAllText($aPath))
+    $paths = 'A.Report', 'B.Report' | ForEach-Object {
+        Join-Path (Join-Path (Join-Path (Join-Path $paDir $_) 'StaticResources') 'RegisteredResources') 'icon.svg'
+    }
+    $stillOriginal = @($paths | Where-Object { [System.IO.File]::ReadAllText($_) -match '#0078D4' }).Count
+    Test-Check -Name 'si el backup falla, NINGUN reporte queda reescrito' `
+        -Ok ($stillOriginal -eq 2) `
+        -Detail "$stillOriginal/2 reportes conservan #0078D4"
 
     # --- a linked .Report is a link too ----------------------------------------
     # The file-level guard does not cover this: the SVGs inside a junctioned

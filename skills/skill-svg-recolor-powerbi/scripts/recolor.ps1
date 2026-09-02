@@ -216,7 +216,7 @@ foreach ($reportDir in $reportDirs) {
 
     # --- Optional backup ---
     if ($Backup -and -not $WhatIf) {
-        $backupDir = Join-Path $BackupRoot "pbip-recolor-backup_$($reportDir.Name)_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+        $backupDir = Get-BackupPath -Root $BackupRoot -Name $reportDir.Name
         # Fatal on purpose. This script rewrites the user's files in place, and
         # New-Item / Copy-Item only raise non-terminating errors by default: a
         # backup that quietly failed would let the loop below overwrite the
@@ -312,7 +312,7 @@ if ($From -and $From.Count -gt 0) {
 }
 
 if ($payloadPlan.Count -gt 0 -and $Backup -and -not $WhatIf) {
-    $payloadBackup = Join-Path $BackupRoot "pbip-recolor-backup_payloads_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    $payloadBackup = Get-BackupPath -Root $BackupRoot -Name 'payloads'
     try {
         New-Item -ItemType Directory -Path $payloadBackup -ErrorAction Stop | Out-Null
         foreach ($entry in $payloadPlan) {
