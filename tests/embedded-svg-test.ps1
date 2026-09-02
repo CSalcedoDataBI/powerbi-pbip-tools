@@ -201,14 +201,21 @@ try {
         $root = Copy-Fixture
         & pwsh -NoProfile -File $recolor -PbipDir $root -To $target -Scope All -Backup *>&1 | Out-Null
         $t = Get-Tmdl -Root $root
-        $badge = ([regex]::Match($t, "data:image/svg\+xml[^`"]*<rect[^`"]*")).Value
-
-        $bare = [regex]::Matches($badge, '(?<!%)#').Count
+        # Anclado en 'linearGradient', que aparece una sola vez: el archivo tiene
+        # DOS literales con data:image/svg+xml y un patron mas laxo puede engancharse
+        # al otro. Y el detalle imprime SIEMPRE lo que se midio - un fallo que solo
+        # dice "ningun # crudo" no deja diagnosticar nada.
+        $badge = ([regex]::Match($t, "data:image/svg\+xml[^
+]*linearGradient[^
+]*")).Value
+        $bare = [regex]::Matches($badge, '#').Count
         $expected = $target.TrimStart('#')
+        $ok = $badge.Length -gt 0 -and $bare -eq 0 -and
+              $badge -match "url\(%23grad\)" -and
+              $badge -match "stroke='%23$expected'" -and
+              $badge -match "stop-color='%23$expected'"
         Test-Check -Name "con -To $target el payload sigue percent-encoded" `
-            -Ok ($bare -eq 0 -and $badge -match "url\(%23grad\)" -and
-                 $badge -match "stroke='%23$expected'" -and $badge -match "stop-color='%23$expected'") `
-            -Detail $(if ($bare -eq 0) { 'ningun # crudo; url(%23grad) intacto' } else { "$bare '#' crudos: $badge" })
+            -Ok $ok -Detail "'#' crudos: $bare | $badge"
     }
 
     # --- una ruta relativa no puede destrozar el backup -----------------------
