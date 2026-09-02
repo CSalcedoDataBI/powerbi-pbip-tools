@@ -196,7 +196,10 @@ try {
     # defecto asi. Comprobado sobre la funcion, no sobre el reloj, para que la
     # prueba no dependa de lo rapida que sea la maquina.
     Import-Module (Join-Path $modules 'PbipIo.psm1') -Force
-    $names = 1..20 | ForEach-Object { Get-BackupPath -Root 'C:\tmp' -Name 'X' }
+    # Raiz real y portable: 'C:\tmp' hace que Join-Path falle en Linux con
+    # "A drive with the name 'C' does not exist", que es como este test
+    # rompio la CI la primera vez.
+    $names = 1..20 | ForEach-Object { Get-BackupPath -Root ([System.IO.Path]::GetTempPath()) -Name 'X' }
     Test-Check -Name 'dos backups del mismo segundo no comparten nombre' `
         -Ok (@($names | Sort-Object -Unique).Count -eq 20) `
         -Detail "$(@($names | Sort-Object -Unique).Count)/20 rutas distintas"
