@@ -187,6 +187,20 @@ Example: `<OUTPUT_BASE>/dashboards/contoso_2025.html`
 
 **NEVER write inside the git repo.** Always use OUTPUT_BASE.
 
+### Step 3f - Make it work without internet
+
+The template loads Chart.js from a CDN. A dashboard that is emailed, copied to a USB stick or
+opened behind a corporate proxy renders **nothing** in that case - the script dies on its
+first reference to `Chart`, taking the KPI cards and the title down with the charts. Run:
+
+```powershell
+pwsh tools/dashboard/Inline-ChartJs.ps1 -Path <the file you just saved>
+```
+
+This splices in the vendored copy of the library with its MIT notice. Skip it only if the
+user explicitly asks to keep the CDN (a smaller file that always gets the latest patch
+release). Running it twice is a no-op, so it is safe to run again on a regenerated file.
+
 ---
 
 ## Phase 4 — Quality checklist
@@ -201,6 +215,7 @@ Before reporting done:
 - [ ] COUNTRY_PROP values sum to approximately 1.0
 - [ ] Output file saved to OUTPUT_BASE (not inside the repo)
 - [ ] File opens in browser without console errors
+- [ ] `Inline-ChartJs.ps1` was run, so the file has no external `<script src=>` (or the user chose to keep the CDN)
 
 ---
 
