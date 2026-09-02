@@ -188,6 +188,29 @@ try {
         -Ok ((Get-Tmdl -Root $root) -eq $tmdlOnce -and (Get-VisualJson -Root $root) -eq $jsonOnce) `
         -Detail 'el base64 no se reescribe por reescribirse'
 
+    # --- el color destino puede tener OTRA longitud ---------------------------
+    # Todas las comprobaciones de arriba usan '#DC143C', que mide lo mismo que
+    # '#0078D4'. Con esa longitud, un re-encodificado por indice pasa igual - y
+    # era incorrecto. -To acepta 3, 4, 6 y 8 digitos: en cuanto la sustitucion
+    # cambia el largo, los indices posteriores se desplazan. Medido antes del
+    # arreglo, con -To '#fff':
+    #     url(%23grad)       ->  url(#grad)
+    #     stroke='%230078D4' ->  stroke='#fff'
+    # Un '#' crudo corta el data URI en el fragmento y el icono deja de pintarse.
+    foreach ($target in @('#fff', '#11223344')) {
+        $root = Copy-Fixture
+        & pwsh -NoProfile -File $recolor -PbipDir $root -To $target -Scope All -Backup *>&1 | Out-Null
+        $t = Get-Tmdl -Root $root
+        $badge = ([regex]::Match($t, "data:image/svg\+xml[^`"]*<rect[^`"]*")).Value
+
+        $bare = [regex]::Matches($badge, '(?<!%)#').Count
+        $expected = $target.TrimStart('#')
+        Test-Check -Name "con -To $target el payload sigue percent-encoded" `
+            -Ok ($bare -eq 0 -and $badge -match "url\(%23grad\)" -and
+                 $badge -match "stroke='%23$expected'" -and $badge -match "stop-color='%23$expected'") `
+            -Detail $(if ($bare -eq 0) { 'ningun # crudo; url(%23grad) intacto' } else { "$bare '#' crudos: $badge" })
+    }
+
     # --- una ruta relativa no puede destrozar el backup -----------------------
     # El nombre del backup se construye con la ruta RELATIVA al proyecto. Cortar
     # un FullName absoluto por la longitud de un -PbipDir relativo corta en el

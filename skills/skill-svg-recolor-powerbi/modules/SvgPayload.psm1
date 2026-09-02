@@ -42,50 +42,39 @@ $script:Base64UriPattern = '(?i)data:image/svg\+xml[^,"]*;base64,(?<b64>[A-Za-z0
 function ConvertFrom-PercentHash {
     <#
     .SYNOPSIS
-      Turn %23 back into '#', remembering which ones were encoded.
+      Turn %23 back into '#' so ColorTokens can read the payload.
     .DESCRIPTION
       Inside a data URI a color is written %230078D4, because a bare '#' would
-      start the fragment. ColorTokens only knows '#', so the payload is decoded
-      before matching and re-encoded after - and only at the positions that were
-      encoded to begin with. Decoding the whole string with UnescapeDataString
-      and re-escaping it would normalise every other escape in the payload, which
-      is exactly the "changes colors and nothing else" promise being broken.
+      start the fragment and truncate the URI.
     #>
     param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
-
-    $sb = [System.Text.StringBuilder]::new()
-    $wasEncoded = [System.Collections.Generic.List[bool]]::new()
-    $i = 0
-    while ($i -lt $Text.Length) {
-        if ($i + 2 -lt $Text.Length -and $Text[$i] -eq '%' -and $Text[$i + 1] -eq '2' -and $Text[$i + 2] -eq '3') {
-            [void]$sb.Append('#'); $wasEncoded.Add($true); $i += 3
-        } else {
-            [void]$sb.Append($Text[$i]); $wasEncoded.Add($false); $i++
-        }
-    }
-    return [pscustomobject]@{ Text = $sb.ToString(); WasEncoded = $wasEncoded }
+    return $Text.Replace('%23', '#')
 }
 
 function ConvertTo-PercentHash {
     <#
     .SYNOPSIS
-      Re-encode the '#' characters that arrived as %23.
+      Re-encode every '#' in a payload that arrived percent-encoded.
     .DESCRIPTION
-      Takes the decoded text and the map ConvertFrom-PercentHash produced. The
-      map is consulted per character rather than per '#': a payload can mix an
-      encoded color with a literal '#' elsewhere, and turning the literal one into
-      %23 would be a change this tool did not promise to make.
+      Every '#', not a remembered subset. An earlier version kept a per-character
+      map of which hashes had been encoded, and it was wrong the moment a
+      replacement changed the string's length: -To accepts 3, 4, 6 and 8-digit
+      hex, so recoloring #0078D4 to #fff shifted every later index by three and
+      the map re-encoded the wrong characters. Measured before the fix:
+
+          url(%23grad)  ->  url(#grad)      the gradient reference, broken
+          stroke='%230078D4' -> stroke='#fff'
+
+      A bare '#' truncates the data URI at the fragment, so those icons stop
+      rendering - the failure this whole scope exists to prevent.
+
+      Encoding all of them is not a guess: in a URI a '#' cannot appear unescaped,
+      so in a well-formed percent-encoded payload every '#' came from a %23. The
+      one input where that does not hold - a payload mixing %23 with a raw '#' -
+      is refused rather than normalised; see Get-SvgPayload.
     #>
-    param(
-        [Parameter(Mandatory)][AllowEmptyString()][string]$Text,
-        [Parameter(Mandatory)][AllowEmptyCollection()][System.Collections.Generic.List[bool]]$WasEncoded
-    )
-    $sb = [System.Text.StringBuilder]::new()
-    for ($i = 0; $i -lt $Text.Length; $i++) {
-        if ($Text[$i] -eq '#' -and $i -lt $WasEncoded.Count -and $WasEncoded[$i]) { [void]$sb.Append('%23') }
-        else { [void]$sb.Append($Text[$i]) }
-    }
-    return $sb.ToString()
+    param([Parameter(Mandatory)][AllowEmptyString()][string]$Text)
+    return $Text.Replace('#', '%23')
 }
 
 function Get-SvgPayload {
@@ -132,7 +121,6 @@ function Get-SvgPayload {
                 Svg        = $svg
                 NewSvg     = $svg
                 Encoding   = 'Base64'
-                WasEncoded = $null
             })
             continue
         }
@@ -140,14 +128,25 @@ function Get-SvgPayload {
         # Plain or percent-encoded: the payload is the literal's body, quotes
         # excluded so a splice can never eat the delimiter.
         $body = $lit.Value.Substring(1, $lit.Value.Length - 2)
-        $decoded = ConvertFrom-PercentHash -Text $body
+        $isPercent = $body.Contains('%23')
+
+        # '%23' holds no '#' of its own, so any literal '#' left in the raw body
+        # is a raw one. Mixed with %23 there is no way to tell, after an edit,
+        # which hashes should go back escaped - and guessing either way breaks
+        # something: a raw '#' truncates the data URI, an over-escaped one changes
+        # a byte this tool promised not to touch. Report it and move on.
+        if ($isPercent -and $body.Contains('#')) {
+            Write-Warning ("Skipped an embedded SVG that mixes %23 with a raw '#': " +
+                           "there is no unambiguous way to re-encode it after a change.")
+            continue
+        }
+
         $out.Add([pscustomobject]@{
-            Index      = $lit.Index + 1
-            Length     = $body.Length
-            Svg        = $decoded.Text
-            NewSvg     = $decoded.Text
-            Encoding   = if ($body -like '*%23*') { 'PercentEncoded' } else { 'Plain' }
-            WasEncoded = $decoded.WasEncoded
+            Index    = $lit.Index + 1
+            Length   = $body.Length
+            Svg      = (ConvertFrom-PercentHash -Text $body)
+            NewSvg   = (ConvertFrom-PercentHash -Text $body)
+            Encoding = if ($isPercent) { 'PercentEncoded' } else { 'Plain' }
         })
     }
 
@@ -177,7 +176,7 @@ function Join-SvgPayload {
 
         $encoded = switch ($p.Encoding) {
             'Base64' { [System.Convert]::ToBase64String([System.Text.Encoding]::UTF8.GetBytes($p.NewSvg)) }
-            'PercentEncoded' { ConvertTo-PercentHash -Text $p.NewSvg -WasEncoded $p.WasEncoded }
+            'PercentEncoded' { ConvertTo-PercentHash -Text $p.NewSvg }
             default { $p.NewSvg }
         }
         $out = $out.Remove($p.Index, $p.Length).Insert($p.Index, $encoded)
