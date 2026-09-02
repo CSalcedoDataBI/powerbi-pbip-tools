@@ -129,9 +129,12 @@ try {
         -Ok ($tmdl -match '"%230078D4", "%23D13438"') `
         -Detail 'la logica DAX conserva sus dos colores'
 
-    Test-Check -Name 'pero lo AVISA, en vez de callarselo' `
-        -Ok ($out -match 'NOT rewritten' -and $out -match '#D13438') `
-        -Detail 'el aviso nombra los colores que quedaron fuera'
+    # Nombrar el archivo, no solo contarlo: el aviso existe para que el usuario
+    # vaya a cambiar esos literales a mano, y "1 DAX file(s)" en un modelo de
+    # cuarenta tablas no lleva a ninguna parte.
+    Test-Check -Name 'pero lo AVISA, con el color Y el archivo' `
+        -Ok ($out -match 'NOT rewritten' -and $out -match '#D13438' -and $out -match 'in: Icons\.tmdl') `
+        -Detail 'el aviso nombra color y archivo'
 
     Test-Check -Name 'no toca un hex que solo es texto en una medida' `
         -Ok ($tmdl -match 'Brand primary is #0078D4 - do not change') `
@@ -184,6 +187,29 @@ try {
     Test-Check -Name 'una segunda pasada al mismo color no cambia nada' `
         -Ok ((Get-Tmdl -Root $root) -eq $tmdlOnce -and (Get-VisualJson -Root $root) -eq $jsonOnce) `
         -Detail 'el base64 no se reescribe por reescribirse'
+
+    # --- una ruta relativa no puede destrozar el backup -----------------------
+    # El nombre del backup se construye con la ruta RELATIVA al proyecto. Cortar
+    # un FullName absoluto por la longitud de un -PbipDir relativo corta en el
+    # offset equivocado: './DynamicIcons' producia 'obal__AppData__Local__...',
+    # partido a mitad de palabra.
+    $root = Copy-Fixture
+    $parent = Split-Path $root -Parent
+    Push-Location $parent
+    try {
+        $relOut = (& pwsh -NoProfile -File $recolor -PbipDir './DynamicIcons' -To '#DC143C' `
+                     -Scope All -Backup *>&1 | Out-String)
+    } finally { Pop-Location }
+    $relBackup = ([regex]::Match($relOut, 'embedded-SVG file\(s\) saved to: (?<p>.+)')).Groups['p'].Value.Trim()
+    $script:tempPaths += $relBackup
+    $relNames = if ($relBackup -and (Test-Path -LiteralPath $relBackup)) {
+        @((Get-ChildItem -LiteralPath $relBackup -File).Name)
+    } else { @() }
+    $allRelative = $relNames.Count -eq 3 -and
+                   -not (@($relNames | Where-Object { $_ -notmatch '^DynamicIcons\.' }).Count)
+    Test-Check -Name 'con -PbipDir relativo el backup conserva nombres legibles' `
+        -Ok $allRelative `
+        -Detail (($relNames | Sort-Object) -join ' | ')
 
     # --- detect ve lo mismo que recolor reescribe -----------------------------
     $root = Copy-Fixture

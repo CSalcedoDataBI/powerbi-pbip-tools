@@ -81,6 +81,14 @@ foreach ($c in $Exclude) {
     }
 }
 
+# Resolved once, up front. Everything below compares against this: the backup
+# names the file by its path RELATIVE to the project, and slicing an absolute
+# FullName by the length of a relative -PbipDir cuts at the wrong offset - a
+# './DynamicIcons' produced a backup called 'obal__AppData__Local__...', chopped
+# mid-word, and a long enough relative path would have thrown outright.
+if (-not (Test-Path -LiteralPath $PbipDir)) { Write-Error "Not found: $PbipDir"; exit 1 }
+$PbipDir = (Resolve-Path -LiteralPath $PbipDir).ProviderPath
+
 # --- What this run is allowed to touch ---
 $doResources = $Scope -in @('Resources', 'All')
 $doDax       = $Scope -in @('Dax', 'All')
@@ -110,6 +118,7 @@ $processedReports = 0
 $writeFailures = 0
 $standaloneColors = @{}
 $standaloneFiles  = @{}
+$standaloneWhere  = @{}
 $payloadFilesChanged = 0
 $payloadFilesSeen    = 0
 $payloadColorsChanged = 0
@@ -266,6 +275,8 @@ foreach ($kind in $payloadKinds) {
             foreach ($c in (Get-StandaloneColorLiteral -Text $text -Payload $payloads)) {
                 $standaloneColors[$c] = $true
                 $standaloneFiles[$hostFile.FullName] = $true
+                if (-not $standaloneWhere.ContainsKey($c)) { $standaloneWhere[$c] = @() }
+                $standaloneWhere[$c] += $hostFile.Name
             }
         }
         $payloadPlan.Add(@{ File = $hostFile; Kind = $kind; EncodingKind = $encKind
@@ -467,7 +478,15 @@ if ($standaloneColors.Count -gt 0) {
     Write-Host ""
     Write-Warning ("{0} color literal(s) sit beside an SVG in {1} DAX file(s) and were NOT rewritten:" -f `
                    $standaloneColors.Count, $standaloneFiles.Count)
-    Write-Host ("    " + (($standaloneColors.Keys | Sort-Object) -join ', '))
+    # Naming the files, not just counting them: the whole point of this warning is
+    # that the user can go and change those literals by hand, and "1 DAX file(s)"
+    # in a model with forty tables is a dead end.
+    foreach ($c in ($standaloneColors.Keys | Sort-Object)) {
+        $where = @($standaloneWhere[$c] | Sort-Object -Unique)
+        $shown = if ($where.Count -gt 4) { ($where[0..3] -join ', ') + ", +$($where.Count - 4) more" }
+                 else { $where -join ', ' }
+        Write-Host ("    {0}  (in: {1})" -f $c, $shown)
+    }
     Write-Host "    They are their own literal, not part of the SVG - the dynamic-icon pattern,"
     Write-Host "    e.g. VAR Color = IF(..., '%230078D4', ...). Rewriting them would mean deciding"
     Write-Host "    that any color-shaped string in the model feeds an icon. Change them by hand if"
