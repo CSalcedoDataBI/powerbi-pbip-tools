@@ -45,7 +45,12 @@ param (
     [switch]$WhatIf
 )
 
-. (Join-Path $PSScriptRoot 'ColorTokens.ps1')
+# Import-Module, not dot-sourcing: the patterns and encodings stay inside the
+# modules instead of landing in this script's scope, where a host runspace could
+# collide with them. -Force so an edited module is picked up in the same session.
+$moduleDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'modules'
+Import-Module (Join-Path $moduleDir 'ColorTokens.psm1') -Force
+Import-Module (Join-Path $moduleDir 'PbipIo.psm1') -Force
 
 # --- Validate color arguments ---
 if (-not (Test-HexColor -Value $To)) {
@@ -244,7 +249,7 @@ foreach ($entry in $plan) {
                 # Write back the SAME encoding the file arrived in.
                 # [System.Text.Encoding]::UTF8 always prepends a BOM, which is how
                 # every icon this tool touched ended up with one.
-                $encoding = if ($encodingOf[$f.FullName] -eq 'Utf8Bom') { $script:Utf8WithBom } else { $script:Utf8NoBom }
+                $encoding = Get-Utf8Encoding -Kind $encodingOf[$f.FullName]
                 try {
                     [System.IO.File]::WriteAllText($f.FullName, $newContent, $encoding)
                 } catch {

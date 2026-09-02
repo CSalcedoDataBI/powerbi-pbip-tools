@@ -19,6 +19,7 @@ param()
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $scripts  = Join-Path $repoRoot 'skills/skill-svg-recolor-powerbi/scripts'
+$modules  = Join-Path $repoRoot 'skills/skill-svg-recolor-powerbi/modules'
 $detect   = Join-Path $scripts 'detect-colors.ps1'
 $recolor  = Join-Path $scripts 'recolor.ps1'
 
@@ -184,7 +185,8 @@ try {
     # Round 7 found five ways the CSS scan gave a wrong answer, all of them about
     # delimiters living inside strings and url(). These pin each one: the table is
     # (svg text -> exactly the tokens that must be treated as colors).
-    . (Join-Path $scripts 'ColorTokens.ps1')
+    Import-Module (Join-Path $modules 'ColorTokens.psm1') -Force
+    Import-Module (Join-Path $modules 'PbipIo.psm1') -Force
     $cssCases = @(
         @{ n = 'hex in a content string is text';       t = '<svg><style>.a::before{content:"#fff";fill:#000}</style></svg>';                       e = '#000' }
         @{ n = 'external fragment url(file.svg#id)';  t = '<svg><path filter="url(filters.svg#abc)" fill="#0078D4"/></svg>';                       e = '#0078D4' }
@@ -565,6 +567,50 @@ try {
     $out = & $recolor -PbipDir $work -To '#123456' 6>&1 3>&1 | Out-String
     Test-Check -Name 'recolor avisa de las notaciones que no reescribio' `
         -Ok ($out -match 'NOT rewritten' -or $out -match 'rgb\(\)') -Detail 'aviso presente al final'
+
+    # --- el modulo no se filtra al llamador (#28) -------------------------------
+    # El criterio de aceptacion del issue, literal: una sesion que define
+    # $HexTokenPattern por su cuenta no debe verlo alterado por cargar esto. Con
+    # dot-sourcing lo veia; ese era el problema. Se comprueba en una sesion nueva
+    # porque esta ya importo el modulo mas arriba.
+    $probe = @'
+$HexTokenPattern   = 'CENTINELA-DEL-ANFITRION'
+$StyleBlockPattern = 'CENTINELA-2'
+Import-Module '{0}' -Force
+Import-Module '{1}' -Force
+$leak1 = $HexTokenPattern
+$leak2 = $StyleBlockPattern
+# Lo privado sigue privado: exportarlo haria del enmascarado CSS parte del contrato.
+$priv  = @(Get-Command Get-CssValueRange, Get-PaintValueKind -ErrorAction SilentlyContinue).Count
+# Y lo publico si esta.
+$pub   = @(Get-Command Get-ColorTokenMatch, Get-CanonicalHex, Test-HexColor, Get-UnsupportedNotation, Get-SvgFile, Join-PbipPath, Get-FileEncodingKind, Get-Utf8Encoding -ErrorAction SilentlyContinue).Count
+"$leak1|$leak2|$priv|$pub"
+'@ -f (Join-Path $modules 'ColorTokens.psm1'), (Join-Path $modules 'PbipIo.psm1')
+
+    $probeFile = Join-Path ([System.IO.Path]::GetTempPath()) ("probe-" + [guid]::NewGuid().ToString('N').Substring(0,8) + ".ps1")
+    $script:tempPaths += $probeFile
+    [System.IO.File]::WriteAllText($probeFile, $probe)
+    $probeOut = (& pwsh -NoProfile -File $probeFile 2>&1 | Out-String).Trim()
+    $parts = $probeOut -split '\|'
+
+    Test-Check -Name 'importar el modulo no pisa variables del anfitrion' `
+        -Ok ($parts.Count -eq 4 -and $parts[0] -eq 'CENTINELA-DEL-ANFITRION' -and $parts[1] -eq 'CENTINELA-2') `
+        -Detail "el anfitrion conserva: $($parts[0]), $($parts[1])"
+
+    Test-Check -Name 'la superficie publica es la declarada, ni mas ni menos' `
+        -Ok ($parts.Count -eq 4 -and $parts[2] -eq '0' -and $parts[3] -eq '8') `
+        -Detail "privadas visibles: $($parts[2]) (debe ser 0) / publicas: $($parts[3]) de 8"
+
+    # Get-Utf8Encoding sustituye a las dos variables que el dot-sourcing filtraba.
+    # Un kind desconocido tiene que ser un error de parametro, no un $null que
+    # acaba escribiendo UTF-16 sobre cada icono.
+    $encBom   = Get-Utf8Encoding -Kind 'Utf8Bom'
+    $encNoBom = Get-Utf8Encoding -Kind 'Utf8NoBom'
+    $rejected = $false
+    try { Get-Utf8Encoding -Kind 'Utf16' | Out-Null } catch { $rejected = $true }
+    Test-Check -Name 'Get-Utf8Encoding da el BOM correcto y rechaza lo que no conoce' `
+        -Ok ($encBom.GetPreamble().Length -eq 3 -and $encNoBom.GetPreamble().Length -eq 0 -and $rejected) `
+        -Detail "preambulo con BOM: $($encBom.GetPreamble().Length) / sin BOM: $($encNoBom.GetPreamble().Length) / kind invalido rechazado: $rejected"
 }
 finally {
     # Only the paths this run created, by exact name. The inline Remove-Item calls

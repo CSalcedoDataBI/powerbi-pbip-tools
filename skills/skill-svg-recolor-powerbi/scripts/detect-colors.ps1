@@ -22,7 +22,12 @@ param (
     [switch]$PassThru
 )
 
-. (Join-Path $PSScriptRoot 'ColorTokens.ps1')
+# Import-Module, not dot-sourcing: the patterns and encodings stay inside the
+# modules instead of landing in this script's scope, where a host runspace could
+# collide with them. -Force so an edited module is picked up in the same session.
+$moduleDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'modules'
+Import-Module (Join-Path $moduleDir 'ColorTokens.psm1') -Force
+Import-Module (Join-Path $moduleDir 'PbipIo.psm1') -Force
 
 # --- Locate all .Report folders (supports multiple reports in one project) ---
 # -LiteralPath throughout: brackets in a folder name are wildcards to -Path.
