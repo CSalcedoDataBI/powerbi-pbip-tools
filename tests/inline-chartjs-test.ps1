@@ -153,7 +153,7 @@ try {
     Test-Check -Name 'avisa de las referencias externas que NO puede quitar' `
         -Ok ($r5.ExitCode -eq 0 -and $r5.Output -match 'WARNING' -and
              $r5.Output -match 'fonts\.googleapis\.com' -and
-             $r5.Output -notmatch 'No external references remain') `
+             $r5.Output -notmatch 'No external references left') `
         -Detail 'no afirma offline cuando no lo es'
 
     # HTML admite atributos sin comillas. Un escaneo que solo entendiera comillas
@@ -165,8 +165,33 @@ try {
     Test-Check -Name 'detecta tambien las referencias externas sin comillas' `
         -Ok ($r5b.ExitCode -eq 0 -and $r5b.Output -match 'WARNING' -and
              $r5b.Output -match 'example\.com' -and
-             $r5b.Output -notmatch 'No external references remain') `
+             $r5b.Output -notmatch 'No external references left') `
         -Detail 'src=https://... sin comillas'
+
+    # CSS tambien puede traerse cosas de la red, y el aviso debe verlas.
+    $f4d = Join-Path $work 'externa-css.html'
+    [System.IO.File]::WriteAllText($f4d,
+        (Get-Dashboard -Head '<style>body{background:url(https://example.net/bg.png)}</style>'))
+    $r5d = Invoke-Inliner -File $f4d
+    Test-Check -Name 'detecta referencias externas dentro del CSS' `
+        -Ok ($r5d.ExitCode -eq 0 -and $r5d.Output -match 'WARNING' -and
+             $r5d.Output -notmatch 'No external references left') `
+        -Detail 'url(https://...) en un <style>'
+
+    # Los snippets publicados de Chart.js llevan defer/integrity/crossorigin. Exigir
+    # que src fuera el primer atributo convertia cero sobre un archivo que carga
+    # Chart.js del CDN a la vista de cualquiera.
+    $f4e = Join-Path $work 'cdn-con-atributos.html'
+    [System.IO.File]::WriteAllText($f4e,
+        '<html><head><script defer crossorigin="anonymous" ' +
+        'src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>' +
+        '</head><body></body></html>')
+    $r5e = Invoke-Inliner -File $f4e
+    $t4e = [System.IO.File]::ReadAllText($f4e)
+    Test-Check -Name 'convierte tambien una etiqueta CDN con atributos antes de src' `
+        -Ok ($r5e.ExitCode -eq 0 -and -not $t4e.Contains('cdn.jsdelivr.net') -and
+             $t4e.Contains('Permission is hereby granted')) `
+        -Detail '<script defer crossorigin src=...>'
 
     # --- marcador sin el aviso que siempre lo acompana ------------------------
     # Sin etiqueta CDN y con el marcador venido del contenido, la version anterior
@@ -178,6 +203,17 @@ try {
     Test-Check -Name 'marcador sin aviso MIT no cuenta como convertido' `
         -Ok ($r5c.ExitCode -ne 0 -and $r5c.Output -notmatch 'Already standalone') `
         -Detail "exit $($r5c.ExitCode)"
+
+    # Y el caso mas afinado: contenido que lleva el marcador Y una frase del aviso,
+    # pero ninguna libreria. Sin exigir el bundle, esto pasaba por convertido.
+    $f4f = Join-Path $work 'marcador-y-aviso-sin-libreria.html'
+    [System.IO.File]::WriteAllText($f4f, (Get-Dashboard -CdnTags 0 -Head (
+        '<title>inlined by Inline-ChartJs.ps1</title><p>The above copyright notice and this ' +
+        'permission notice shall be included</p>')))
+    $r5f = Invoke-Inliner -File $f4f
+    Test-Check -Name 'marcador + aviso pero sin libreria tampoco cuenta' `
+        -Ok ($r5f.ExitCode -ne 0 -and $r5f.Output -notmatch 'Already standalone') `
+        -Detail "exit $($r5f.ExitCode)"
 
     # --- sin licencia no se publica ------------------------------------------
     # Preferible fallar a redistribuir codigo ajeno con el aviso quitado.

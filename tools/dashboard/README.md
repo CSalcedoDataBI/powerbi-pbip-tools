@@ -115,8 +115,14 @@ carries — a web font, an image — rather than letting you assume an offline g
 cannot give. A dashboard from the stock template has none, and prints:
 
 ```
-  No external references remain: it renders with no network access.
+  No external references left in the markup or CSS.
 ```
+
+That sentence is deliberately narrower than "it is offline". The scan reads element
+attributes (`src`, `href`, `srcset`, `data`, `poster`) and CSS `url()` / `@import`. It does
+**not** read the page's own JavaScript, so a URL that the script builds or `fetch`es at
+runtime will not be listed — checking that would mean interpreting the code, which is a
+different job from this one.
 
 Running it twice is a no-op. It refuses to run on a file that carries its marker but still
 has a CDN tag: that means either an interrupted conversion or marker text that came from

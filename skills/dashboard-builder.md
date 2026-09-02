@@ -215,7 +215,7 @@ Before reporting done:
 - [ ] COUNTRY_PROP values sum to approximately 1.0
 - [ ] Output file saved to OUTPUT_BASE (not inside the repo)
 - [ ] File opens in browser without console errors
-- [ ] `Inline-ChartJs.ps1` was run and reported no external references left (or the user chose to keep the CDN)
+- [ ] `Inline-ChartJs.ps1` was run and reported no external references left in the markup or CSS (or the user chose to keep the CDN)
 
 ---
 

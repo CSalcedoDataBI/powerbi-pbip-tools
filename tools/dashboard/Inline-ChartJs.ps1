@@ -43,7 +43,10 @@ $html = [System.IO.File]::ReadAllText($Path)
 
 # The CDN tag is what gets replaced. Matching the URL rather than a special
 # comment means a dashboard generated before this script existed converts too.
-$cdnTag = '(?is)<script\s+src\s*=\s*["'']https?://[^"'']*chart[^"'']*\.js["'']\s*>\s*</script>'
+# src does not have to come first: the published Chart.js snippets carry defer,
+# integrity and crossorigin, and requiring src to lead would silently convert
+# nothing on a file that plainly loads Chart.js from a CDN.
+$cdnTag = '(?is)<script\b[^>]*?\bsrc\s*=\s*["'']https?://[^"'']*chart[^"'']*\.js["''][^>]*>\s*</script>'
 $cdnTags = @([regex]::Matches($html, $cdnTag))
 $hasMarker = $html.Contains($marker)
 
@@ -54,8 +57,11 @@ $hasMarker = $html.Contains($marker)
 # marker only counts when the notice it is supposed to accompany is there too.
 $noticeLine = 'The above copyright notice and this permission notice shall be included'
 $hasNotice  = $html.Contains($noticeLine)
+# Evidence that the library is actually embedded, not just that the file talks
+# about it: the header this repo puts on the vendored bundle.
+$hasBundle  = $html.Contains('/*! Chart.js v')
 
-if ($hasMarker -and $hasNotice -and $cdnTags.Count -eq 0) {
+if ($hasMarker -and $hasNotice -and $hasBundle -and $cdnTags.Count -eq 0) {
     Write-Host "Already standalone: $([System.IO.Path]::GetFileName($Path))"
     exit 0
 }
@@ -65,10 +71,10 @@ if ($hasMarker -and $cdnTags.Count -gt 0) {
                  'content. Refusing to guess which.')
     exit 1
 }
-if ($hasMarker -and -not $hasNotice) {
-    Write-Error ("$Path carries the marker but not the license notice that always goes with " +
-                 'it. Either it was edited after conversion, or the marker text came from the ' +
-                 'dashboard content. Refusing to call it converted.')
+if ($hasMarker -and -not ($hasNotice -and $hasBundle)) {
+    Write-Error ("$Path carries the marker but not the license notice and bundle that always " +
+                 'go with it. Either it was edited after conversion, or the marker text came ' +
+                 'from the dashboard content. Refusing to call it converted.')
     exit 1
 }
 if ($cdnTags.Count -eq 0) {
@@ -148,12 +154,18 @@ Write-Host ("  {0:N0} -> {1:N0} bytes." -f $before, $after)
 # The unquoted alternative is not pedantry: HTML allows <img src=https://...> and
 # a scan that only understood quotes would print "no external references remain"
 # over a file that still needs the network - the exact claim this exists to avoid.
-$externalRef = '(?is)<(?:script|link|img|iframe)\b[^>]*\b(?:src|href)\s*=\s*' +
-               '(?:"https?://[^"]*"|''https?://[^'']*''|https?://[^\s>]+)'
-$remaining = @([regex]::Matches($out, $externalRef))
+#
+# What this does NOT see, and the message therefore does not promise: a URL built
+# or fetched by the page's own JavaScript. Reading that would mean interpreting
+# the script, which is a different job from the one here.
+$attrRef = '(?is)<(?:script|link|img|iframe|video|audio|source|embed|object|track)\b[^>]*' +
+           '\b(?:src|href|srcset|data|poster)\s*=\s*' +
+           '(?:"https?://[^"]*"|''https?://[^'']*''|https?://[^\s>]+)'
+$cssRef  = '(?i)(?:@import\s+(?:url\s*\(\s*)?["'']?https?://|url\s*\(\s*["'']?https?://)'
+$remaining = @([regex]::Matches($out, $attrRef)) + @([regex]::Matches($out, $cssRef))
 if ($remaining.Count -eq 0) {
-    Write-Host '  No external references remain: it renders with no network access.'
+    Write-Host '  No external references left in the markup or CSS.'
 } else {
     Write-Host "  WARNING: $($remaining.Count) other external reference(s) remain, so it is not fully offline:"
-    $remaining | Select-Object -First 5 | ForEach-Object { Write-Host "    $($_.Value)" }
+    $remaining | Select-Object -First 5 | ForEach-Object { Write-Host "    $($_.Value.Trim())" }
 }
