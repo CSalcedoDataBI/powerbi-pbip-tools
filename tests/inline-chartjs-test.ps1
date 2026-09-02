@@ -193,6 +193,41 @@ try {
              $t4e.Contains('Permission is hereby granted')) `
         -Detail '<script defer crossorigin src=...>'
 
+    # Un srcset legitimo mezcla candidatos: "local.png 1x, https://cdn/2x.png 2x".
+    # Anclar la URL al principio del valor perdia el candidato remoto.
+    $f4g = Join-Path $work 'srcset-mixto.html'
+    [System.IO.File]::WriteAllText($f4g,
+        (Get-Dashboard -Head '<img src="local.png" srcset="local.png 1x, https://example.org/2x.png 2x">'))
+    $r5g = Invoke-Inliner -File $f4g
+    Test-Check -Name 've la URL remota aunque no abra el valor del atributo' `
+        -Ok ($r5g.ExitCode -eq 0 -and $r5g.Output -match 'WARNING' -and
+             $r5g.Output -match 'example\.org' -and
+             $r5g.Output -notmatch 'No external references left') `
+        -Detail 'srcset con un candidato local delante'
+
+    # 'chart' como subcadena tambien reclama highcharts.js y flowchart.js: borraria
+    # una dependencia que la pagina necesita y metria Chart.js en su lugar.
+    $f4h = Join-Path $work 'highcharts.html'
+    [System.IO.File]::WriteAllText($f4h,
+        '<html><head><script src="https://cdn.example.com/highcharts.js"></script></head><body></body></html>')
+    $r5h = Invoke-Inliner -File $f4h
+    $t4h = [System.IO.File]::ReadAllText($f4h)
+    Test-Check -Name 'no toca un highcharts.js que solo contiene la palabra chart' `
+        -Ok ($r5h.ExitCode -ne 0 -and $t4h.Contains('highcharts.js') -and
+             -not $t4h.Contains('Permission is hereby granted')) `
+        -Detail "exit $($r5h.ExitCode), archivo sin tocar"
+
+    # ...pero si reconoce la libreria real servida desde otro host y sin minificar.
+    $f4i = Join-Path $work 'otro-host.html'
+    [System.IO.File]::WriteAllText($f4i,
+        '<html><head><script src="https://unpkg.com/chart.js@4.4.1/dist/chart.js"></script></head><body></body></html>')
+    $r5i = Invoke-Inliner -File $f4i
+    $t4i = [System.IO.File]::ReadAllText($f4i)
+    Test-Check -Name 'si convierte chart.js servido desde otro CDN' `
+        -Ok ($r5i.ExitCode -eq 0 -and -not $t4i.Contains('unpkg.com') -and
+             $t4i.Contains('Permission is hereby granted')) `
+        -Detail 'unpkg.com/chart.js@4.4.1/dist/chart.js'
+
     # --- marcador sin el aviso que siempre lo acompana ------------------------
     # Sin etiqueta CDN y con el marcador venido del contenido, la version anterior
     # decia "ya es autonomo" sobre un archivo sin libreria y sin licencia.

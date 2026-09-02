@@ -198,8 +198,10 @@ pwsh tools/dashboard/Inline-ChartJs.ps1 -Path <the file you just saved>
 ```
 
 This splices in the vendored copy of the library with its MIT notice. Skip it only if the
-user explicitly asks to keep the CDN (a smaller file that always gets the latest patch
-release). Running it twice is a no-op, so it is safe to run again on a regenerated file.
+user explicitly asks to keep the CDN - the file stays ~44 KB instead of ~245 KB. That is
+the whole trade: the CDN URL in the template is pinned to `chart.js@4.4.1`, exactly like
+the vendored copy, so keeping it buys no automatic updates. Running the script twice is a
+no-op, so it is safe to run again on a regenerated file.
 
 ---
 

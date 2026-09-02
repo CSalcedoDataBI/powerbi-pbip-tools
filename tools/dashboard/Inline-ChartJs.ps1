@@ -46,7 +46,12 @@ $html = [System.IO.File]::ReadAllText($Path)
 # src does not have to come first: the published Chart.js snippets carry defer,
 # integrity and crossorigin, and requiring src to lead would silently convert
 # nothing on a file that plainly loads Chart.js from a CDN.
-$cdnTag = '(?is)<script\b[^>]*?\bsrc\s*=\s*["'']https?://[^"'']*chart[^"'']*\.js["''][^>]*>\s*</script>'
+#
+# The filename is anchored to a path segment rather than matched as a substring.
+# 'chart' anywhere in the URL would also claim highcharts.js and flowchart.js -
+# deleting a dependency the page needs and injecting Chart.js in its place.
+$cdnTag = '(?is)<script\b[^>]*?\bsrc\s*=\s*["'']https?://[^"'']*' +
+          '/chart(?:\.umd)?(?:\.min)?\.js(?:\?[^"'']*)?["''][^>]*>\s*</script>'
 $cdnTags = @([regex]::Matches($html, $cdnTag))
 $hasMarker = $html.Contains($marker)
 
@@ -158,9 +163,13 @@ Write-Host ("  {0:N0} -> {1:N0} bytes." -f $before, $after)
 # What this does NOT see, and the message therefore does not promise: a URL built
 # or fetched by the page's own JavaScript. Reading that would mean interpreting
 # the script, which is a different job from the one here.
+# The URL is matched anywhere inside the attribute value, not only at its start:
+# a srcset legitimately reads "local.png 1x, https://cdn/2x.png 2x", and anchoring
+# to the start would miss the remote candidate. Over-reporting here is a warning
+# the reader can dismiss; under-reporting is a false "no external references".
 $attrRef = '(?is)<(?:script|link|img|iframe|video|audio|source|embed|object|track)\b[^>]*' +
            '\b(?:src|href|srcset|data|poster)\s*=\s*' +
-           '(?:"https?://[^"]*"|''https?://[^'']*''|https?://[^\s>]+)'
+           '(?:"[^"]*https?://[^"]*"|''[^'']*https?://[^'']*''|https?://[^\s>]+)'
 $cssRef  = '(?i)(?:@import\s+(?:url\s*\(\s*)?["'']?https?://|url\s*\(\s*["'']?https?://)'
 $remaining = @([regex]::Matches($out, $attrRef)) + @([regex]::Matches($out, $cssRef))
 if ($remaining.Count -eq 0) {
