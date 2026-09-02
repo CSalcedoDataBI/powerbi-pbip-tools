@@ -37,8 +37,22 @@ if (-not $LibraryPath) { $LibraryPath = Join-Path $PSScriptRoot 'vendor/chart.um
 foreach ($p in @($Path, $LibraryPath)) {
     if (-not (Test-Path -LiteralPath $p)) { Write-Error "Not found: $p"; exit 1 }
 }
+# Normalised once, so every later [System.IO.File] call sees the same absolute
+# path. Test-Path resolves '~' and relative paths through the PowerShell provider;
+# [System.IO.File] resolves them against the process working directory, and the
+# two do not always agree - measured: ReadAllBytes('~/x') throws where Test-Path
+# on the same string returns true. No test pins this, because I could not make
+# the mismatch reproduce through the script's own invocation; it is here to
+# remove the dependency on which of the two is doing the resolving.
+$Path        = (Resolve-Path -LiteralPath $Path).ProviderPath
+$LibraryPath = (Resolve-Path -LiteralPath $LibraryPath).ProviderPath
 
 $marker = 'inlined by Inline-ChartJs.ps1'
+# ReadAllText drops a BOM silently. This tool changes one script tag and nothing
+# else, so a file that arrived with a BOM leaves with one.
+$firstBytes = [System.IO.File]::ReadAllBytes($Path) | Select-Object -First 3
+$hasBom = $firstBytes.Count -eq 3 -and
+          $firstBytes[0] -eq 0xEF -and $firstBytes[1] -eq 0xBB -and $firstBytes[2] -eq 0xBF
 $html = [System.IO.File]::ReadAllText($Path)
 
 # The CDN tag is what gets replaced. Matching the URL rather than a special
@@ -151,7 +165,17 @@ for ($i = $cdnTags.Count - 1; $i -ge 0; $i--) {
     $replacement = if ($i -eq 0) { $inline } else { '' }
     $out = $out.Remove($m.Index, $m.Length).Insert($m.Index, $replacement)
 }
-[System.IO.File]::WriteAllText($Path, $out, (New-Object System.Text.UTF8Encoding($false)))
+# Written beside the target and renamed over it, never straight into it. A write
+# that dies halfway - disk full, the process killed - would otherwise leave the
+# dashboard truncated with no copy to go back to.
+$tmp = "$Path.inlining.tmp"
+try {
+    [System.IO.File]::WriteAllText($tmp, $out, (New-Object System.Text.UTF8Encoding($hasBom)))
+    Move-Item -LiteralPath $tmp -Destination $Path -Force
+} catch {
+    if (Test-Path -LiteralPath $tmp) { Remove-Item -LiteralPath $tmp -Force -ErrorAction SilentlyContinue }
+    throw
+}
 $after = (Get-Item -LiteralPath $Path).Length
 
 Write-Host "Inlined Chart.js v$version into $([System.IO.Path]::GetFileName($Path))"

@@ -242,6 +242,27 @@ try {
              $t4j.Contains('Permission is hereby granted')) `
         -Detail '<script src=https://... sin comillas>'
 
+    # Un BOM al entrar tiene que seguir estando al salir: esta herramienta cambia
+    # una etiqueta y nada mas.
+    $f4k = Join-Path $work 'con-bom.html'
+    [System.IO.File]::WriteAllText($f4k, (Get-Dashboard), (New-Object System.Text.UTF8Encoding($true)))
+    $r5k = Invoke-Inliner -File $f4k
+    $bom = [System.IO.File]::ReadAllBytes($f4k) | Select-Object -First 3
+    Test-Check -Name 'conserva el BOM del archivo original' `
+        -Ok ($r5k.ExitCode -eq 0 -and $bom[0] -eq 0xEF -and $bom[1] -eq 0xBB -and $bom[2] -eq 0xBF) `
+        -Detail ('primeros bytes: ' + (($bom | ForEach-Object { $_.ToString('X2') }) -join ' '))
+
+    # ...y un archivo sin BOM no gana uno.
+    $noBom = [System.IO.File]::ReadAllBytes($f) | Select-Object -First 3
+    Test-Check -Name 'y no le anade uno al que no lo tenia' `
+        -Ok (-not ($noBom[0] -eq 0xEF -and $noBom[1] -eq 0xBB -and $noBom[2] -eq 0xBF)) `
+        -Detail ('primeros bytes: ' + (($noBom | ForEach-Object { $_.ToString('X2') }) -join ' '))
+
+    # La escritura va a un temporal y se renombra encima. Nada debe quedar suelto.
+    Test-Check -Name 'no deja archivos temporales detras' `
+        -Ok (@(Get-ChildItem -LiteralPath $work -Filter '*.tmp' -File).Count -eq 0) `
+        -Detail 'ningun *.tmp en el fixture'
+
     # --- marcador sin el aviso que siempre lo acompana ------------------------
     # Sin etiqueta CDN y con el marcador venido del contenido, la version anterior
     # decia "ya es autonomo" sobre un archivo sin libreria y sin licencia.
