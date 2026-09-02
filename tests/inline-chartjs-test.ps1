@@ -1,0 +1,320 @@
+<#
+.SYNOPSIS
+  Behavioural tests for tools/dashboard/Inline-ChartJs.ps1.
+
+.DESCRIPTION
+  The script's whole job is a licensing guarantee: every dashboard it converts
+  must carry the Chart.js MIT notice, and it must never report success while
+  leaving a CDN tag behind. Both failure modes are silent - the page still looks
+  right on a machine with internet - so they are pinned here rather than left to
+  a manual look.
+
+  Every assertion reads the produced file, never the script's own printed output.
+
+.EXAMPLE
+  pwsh tests/inline-chartjs-test.ps1
+#>
+[CmdletBinding()]
+param()
+
+$ErrorActionPreference = 'Stop'
+$repoRoot = Split-Path $PSScriptRoot -Parent
+$inliner  = Join-Path $repoRoot 'tools/dashboard/Inline-ChartJs.ps1'
+$vendor   = Join-Path $repoRoot 'tools/dashboard/vendor'
+
+$failures = @()
+function Test-Check {
+    param([string]$Name, [bool]$Ok, [string]$Detail)
+    if ($Ok) {
+        Write-Host "  PASS  $Name" -ForegroundColor Green
+        if ($Detail) { Write-Host "        $Detail" -ForegroundColor DarkGray }
+    } else {
+        Write-Host "  FAIL  $Name" -ForegroundColor Red
+        Write-Host "        $Detail" -ForegroundColor Red
+        $script:failures += $Name
+    }
+}
+
+# Same discipline as color-tokens-test.ps1: register exact paths, never glob the
+# temp directory on cleanup.
+$script:tempPaths = @()
+function Get-ScopedTempPath {
+    param([Parameter(Mandatory)][string]$Prefix)
+    $p = Join-Path ([System.IO.Path]::GetTempPath()) "$Prefix-$([guid]::NewGuid().ToString('N').Substring(0,8))"
+    $script:tempPaths += $p
+    return $p
+}
+
+$CDN = '<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>'
+
+$work = Get-ScopedTempPath -Prefix 'inline-chartjs'
+Write-Host "=== Inline-ChartJs tests ===" -ForegroundColor Cyan
+Write-Host "  Fixture: $work`n"
+
+try {
+    New-Item -ItemType Directory -Path $work -Force | Out-Null
+
+    # A dashboard is only what the script cares about: a CDN tag and some text.
+    # The '$&' and '$1' are deliberate - a -replace based implementation would
+    # read them as capture-group references and corrupt the output.
+    function Get-Dashboard {
+        param([string]$Head = '', [int]$CdnTags = 1)
+        $tags = (1..[Math]::Max($CdnTags, 0) | ForEach-Object { $CDN }) -join "`n"
+        if ($CdnTags -le 0) { $tags = '' }
+        return "<html><head>$Head`n$tags</head><body><p>cost is `$1 per `$& unit</p></body></html>"
+    }
+
+    function Invoke-Inliner {
+        param([string]$File, [string[]]$Extra = @())
+        $out = & pwsh -NoProfile -File $inliner -Path $File @Extra *>&1 | Out-String
+        return [pscustomobject]@{ Output = $out; ExitCode = $LASTEXITCODE }
+    }
+
+    # --- happy path -----------------------------------------------------------
+    $f = Join-Path $work 'happy.html'
+    [System.IO.File]::WriteAllText($f, (Get-Dashboard))
+    $r = Invoke-Inliner -File $f
+    $t = [System.IO.File]::ReadAllText($f)
+
+    Test-Check -Name 'inlina la libreria y sale con 0' `
+        -Ok ($r.ExitCode -eq 0 -and $t.Length -gt 150000) `
+        -Detail "exit $($r.ExitCode), $($t.Length) bytes"
+
+    Test-Check -Name 'no queda ninguna referencia externa' `
+        -Ok (-not ($t -match '(?i)<script\s+src\s*=\s*"https?://')) `
+        -Detail 'sin <script src="http...">'
+
+    # The point of the whole change: MIT requires the notice to travel with the
+    # copy, and every generated dashboard IS a copy.
+    Test-Check -Name 'el aviso MIT completo viaja dentro del HTML' `
+        -Ok ($t.Contains('Permission is hereby granted') -and
+             $t.Contains('Copyright (c) 2014-2022 Chart.js Contributors') -and
+             $t.Contains('The above copyright notice and this permission notice shall be included')) `
+        -Detail 'copyright + permiso + clausula de inclusion'
+
+    # Si la licencia se derramara fuera del comentario, su texto quedaria como
+    # JavaScript y la pagina moriria con un SyntaxError. La prueba: el primer
+    # '*/' despues del '/*!' tiene que venir DESPUES del texto de la licencia.
+    $bannerStart = $t.IndexOf('/*!')
+    $bannerEnd   = if ($bannerStart -ge 0) { $t.IndexOf('*/', $bannerStart) } else { -1 }
+    $licenseAt   = $t.IndexOf('Permission is hereby granted')
+    Test-Check -Name 'la licencia queda dentro del comentario, no derramada en el JS' `
+        -Ok ($bannerStart -ge 0 -and $bannerEnd -gt $licenseAt -and $licenseAt -gt $bannerStart) `
+        -Detail "/*! en $bannerStart, licencia en $licenseAt, cierre en $bannerEnd"
+
+    # A -replace implementation would have eaten these.
+    Test-Check -Name 'el splice no interpreta $& ni $1 del documento' `
+        -Ok ($t.Contains('cost is $1 per $& unit')) `
+        -Detail 'texto del dashboard intacto'
+
+    # --- idempotencia ---------------------------------------------------------
+    $sizeBefore = (Get-Item $f).Length
+    $r2 = Invoke-Inliner -File $f
+    Test-Check -Name 'la segunda corrida no toca el archivo' `
+        -Ok ($r2.ExitCode -eq 0 -and (Get-Item $f).Length -eq $sizeBefore) `
+        -Detail "exit $($r2.ExitCode), tamano igual"
+
+    # --- el marcador no basta: tiene que coincidir con el estado real ---------
+    # Un dashboard lleva titulos y datos arbitrarios. Si uno contuviera el texto
+    # del marcador, confiar solo en el dejaria el CDN puesto Y sin aviso MIT,
+    # en silencio y reportando exito.
+    $f2 = Join-Path $work 'marcador-falso.html'
+    [System.IO.File]::WriteAllText($f2, (Get-Dashboard -Head '<title>inlined by Inline-ChartJs.ps1</title>'))
+    $r3 = Invoke-Inliner -File $f2
+    $t2 = [System.IO.File]::ReadAllText($f2)
+    Test-Check -Name 'marcador presente + CDN presente = error, no falso OK' `
+        -Ok ($r3.ExitCode -ne 0 -and $t2.Contains($CDN) -and
+             -not $t2.Contains('Permission is hereby granted')) `
+        -Detail "exit $($r3.ExitCode), archivo sin tocar"
+
+    # --- mas de una etiqueta CDN ---------------------------------------------
+    # Reemplazar solo la primera dejaria una dependencia de red viva mientras el
+    # script reporta que el archivo ya es autonomo.
+    $f3 = Join-Path $work 'dos-tags.html'
+    [System.IO.File]::WriteAllText($f3, (Get-Dashboard -CdnTags 2))
+    $r4 = Invoke-Inliner -File $f3
+    $t3 = [System.IO.File]::ReadAllText($f3)
+    Test-Check -Name 'quita todas las etiquetas CDN, no solo la primera' `
+        -Ok ($r4.ExitCode -eq 0 -and -not $t3.Contains('cdn.jsdelivr.net')) `
+        -Detail 'ninguna cdn.jsdelivr.net sobrevive'
+    # Contar el marcador no sirve: puede venir del contenido del dashboard. Lo que
+    # cuenta copias de la libreria es la cabecera del propio bundle vendorizado.
+    Test-Check -Name 'y embebe la libreria una sola vez' `
+        -Ok (([regex]::Matches($t3, [regex]::Escape('/*! Chart.js v4.4.1 |'))).Count -eq 1) `
+        -Detail 'una sola copia del bundle'
+
+    # --- otras referencias externas ------------------------------------------
+    # Quitar Chart.js no es lo mismo que estar offline. El script debe decir lo
+    # que queda en vez de dejar inferir una garantia que no puede dar.
+    $f4 = Join-Path $work 'otra-externa.html'
+    [System.IO.File]::WriteAllText($f4,
+        (Get-Dashboard -Head '<link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter">'))
+    $r5 = Invoke-Inliner -File $f4
+    Test-Check -Name 'avisa de las referencias externas que NO puede quitar' `
+        -Ok ($r5.ExitCode -eq 0 -and $r5.Output -match 'WARNING' -and
+             $r5.Output -match 'fonts\.googleapis\.com' -and
+             $r5.Output -notmatch 'No external references left') `
+        -Detail 'no afirma offline cuando no lo es'
+
+    # HTML admite atributos sin comillas. Un escaneo que solo entendiera comillas
+    # diria "no quedan referencias externas" sobre un archivo que sigue necesitando
+    # la red: justo la afirmacion que este aviso existe para no hacer.
+    $f4b = Join-Path $work 'externa-sin-comillas.html'
+    [System.IO.File]::WriteAllText($f4b, (Get-Dashboard -Head '<img src=https://example.com/logo.png>'))
+    $r5b = Invoke-Inliner -File $f4b
+    Test-Check -Name 'detecta tambien las referencias externas sin comillas' `
+        -Ok ($r5b.ExitCode -eq 0 -and $r5b.Output -match 'WARNING' -and
+             $r5b.Output -match 'example\.com' -and
+             $r5b.Output -notmatch 'No external references left') `
+        -Detail 'src=https://... sin comillas'
+
+    # CSS tambien puede traerse cosas de la red, y el aviso debe verlas.
+    $f4d = Join-Path $work 'externa-css.html'
+    [System.IO.File]::WriteAllText($f4d,
+        (Get-Dashboard -Head '<style>body{background:url(https://example.net/bg.png)}</style>'))
+    $r5d = Invoke-Inliner -File $f4d
+    Test-Check -Name 'detecta referencias externas dentro del CSS' `
+        -Ok ($r5d.ExitCode -eq 0 -and $r5d.Output -match 'WARNING' -and
+             $r5d.Output -notmatch 'No external references left') `
+        -Detail 'url(https://...) en un <style>'
+
+    # Los snippets publicados de Chart.js llevan defer/integrity/crossorigin. Exigir
+    # que src fuera el primer atributo convertia cero sobre un archivo que carga
+    # Chart.js del CDN a la vista de cualquiera.
+    $f4e = Join-Path $work 'cdn-con-atributos.html'
+    [System.IO.File]::WriteAllText($f4e,
+        '<html><head><script defer crossorigin="anonymous" ' +
+        'src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>' +
+        '</head><body></body></html>')
+    $r5e = Invoke-Inliner -File $f4e
+    $t4e = [System.IO.File]::ReadAllText($f4e)
+    Test-Check -Name 'convierte tambien una etiqueta CDN con atributos antes de src' `
+        -Ok ($r5e.ExitCode -eq 0 -and -not $t4e.Contains('cdn.jsdelivr.net') -and
+             $t4e.Contains('Permission is hereby granted')) `
+        -Detail '<script defer crossorigin src=...>'
+
+    # Un srcset legitimo mezcla candidatos: "local.png 1x, https://cdn/2x.png 2x".
+    # Anclar la URL al principio del valor perdia el candidato remoto.
+    $f4g = Join-Path $work 'srcset-mixto.html'
+    [System.IO.File]::WriteAllText($f4g,
+        (Get-Dashboard -Head '<img src="local.png" srcset="local.png 1x, https://example.org/2x.png 2x">'))
+    $r5g = Invoke-Inliner -File $f4g
+    Test-Check -Name 've la URL remota aunque no abra el valor del atributo' `
+        -Ok ($r5g.ExitCode -eq 0 -and $r5g.Output -match 'WARNING' -and
+             $r5g.Output -match 'example\.org' -and
+             $r5g.Output -notmatch 'No external references left') `
+        -Detail 'srcset con un candidato local delante'
+
+    # 'chart' como subcadena tambien reclama highcharts.js y flowchart.js: borraria
+    # una dependencia que la pagina necesita y metria Chart.js en su lugar.
+    $f4h = Join-Path $work 'highcharts.html'
+    [System.IO.File]::WriteAllText($f4h,
+        '<html><head><script src="https://cdn.example.com/highcharts.js"></script></head><body></body></html>')
+    $r5h = Invoke-Inliner -File $f4h
+    $t4h = [System.IO.File]::ReadAllText($f4h)
+    Test-Check -Name 'no toca un highcharts.js que solo contiene la palabra chart' `
+        -Ok ($r5h.ExitCode -ne 0 -and $t4h.Contains('highcharts.js') -and
+             -not $t4h.Contains('Permission is hereby granted')) `
+        -Detail "exit $($r5h.ExitCode), archivo sin tocar"
+
+    # ...pero si reconoce la libreria real servida desde otro host y sin minificar.
+    $f4i = Join-Path $work 'otro-host.html'
+    [System.IO.File]::WriteAllText($f4i,
+        '<html><head><script src="https://unpkg.com/chart.js@4.4.1/dist/chart.js"></script></head><body></body></html>')
+    $r5i = Invoke-Inliner -File $f4i
+    $t4i = [System.IO.File]::ReadAllText($f4i)
+    Test-Check -Name 'si convierte chart.js servido desde otro CDN' `
+        -Ok ($r5i.ExitCode -eq 0 -and -not $t4i.Contains('unpkg.com') -and
+             $t4i.Contains('Permission is hereby granted')) `
+        -Detail 'unpkg.com/chart.js@4.4.1/dist/chart.js'
+
+    # El escaneo de avisos entiende atributos sin comillas; el conversor tambien
+    # tiene que hacerlo, o dejaria la pagina cargando Chart.js de la red diciendo
+    # que no habia nada que inlinar.
+    $f4j = Join-Path $work 'cdn-sin-comillas.html'
+    [System.IO.File]::WriteAllText($f4j,
+        '<html><head><script src=https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js>' +
+        '</script></head><body></body></html>')
+    $r5j = Invoke-Inliner -File $f4j
+    $t4j = [System.IO.File]::ReadAllText($f4j)
+    Test-Check -Name 'convierte una etiqueta CDN con src sin comillas' `
+        -Ok ($r5j.ExitCode -eq 0 -and -not $t4j.Contains('cdn.jsdelivr.net') -and
+             $t4j.Contains('Permission is hereby granted')) `
+        -Detail '<script src=https://... sin comillas>'
+
+    # Un BOM al entrar tiene que seguir estando al salir: esta herramienta cambia
+    # una etiqueta y nada mas.
+    $f4k = Join-Path $work 'con-bom.html'
+    [System.IO.File]::WriteAllText($f4k, (Get-Dashboard), (New-Object System.Text.UTF8Encoding($true)))
+    $r5k = Invoke-Inliner -File $f4k
+    $bom = [System.IO.File]::ReadAllBytes($f4k) | Select-Object -First 3
+    Test-Check -Name 'conserva el BOM del archivo original' `
+        -Ok ($r5k.ExitCode -eq 0 -and $bom[0] -eq 0xEF -and $bom[1] -eq 0xBB -and $bom[2] -eq 0xBF) `
+        -Detail ('primeros bytes: ' + (($bom | ForEach-Object { $_.ToString('X2') }) -join ' '))
+
+    # ...y un archivo sin BOM no gana uno.
+    $noBom = [System.IO.File]::ReadAllBytes($f) | Select-Object -First 3
+    Test-Check -Name 'y no le anade uno al que no lo tenia' `
+        -Ok (-not ($noBom[0] -eq 0xEF -and $noBom[1] -eq 0xBB -and $noBom[2] -eq 0xBF)) `
+        -Detail ('primeros bytes: ' + (($noBom | ForEach-Object { $_.ToString('X2') }) -join ' '))
+
+    # La escritura va a un temporal y se renombra encima. Nada debe quedar suelto.
+    Test-Check -Name 'no deja archivos temporales detras' `
+        -Ok (@(Get-ChildItem -LiteralPath $work -Filter '*.tmp' -File).Count -eq 0) `
+        -Detail 'ningun *.tmp en el fixture'
+
+    # --- marcador sin el aviso que siempre lo acompana ------------------------
+    # Sin etiqueta CDN y con el marcador venido del contenido, la version anterior
+    # decia "ya es autonomo" sobre un archivo sin libreria y sin licencia.
+    $f4c = Join-Path $work 'marcador-sin-aviso.html'
+    [System.IO.File]::WriteAllText($f4c,
+        (Get-Dashboard -Head '<title>inlined by Inline-ChartJs.ps1</title>' -CdnTags 0))
+    $r5c = Invoke-Inliner -File $f4c
+    Test-Check -Name 'marcador sin aviso MIT no cuenta como convertido' `
+        -Ok ($r5c.ExitCode -ne 0 -and $r5c.Output -notmatch 'Already standalone') `
+        -Detail "exit $($r5c.ExitCode)"
+
+    # Y el caso mas afinado: contenido que lleva el marcador Y una frase del aviso,
+    # pero ninguna libreria. Sin exigir el bundle, esto pasaba por convertido.
+    $f4f = Join-Path $work 'marcador-y-aviso-sin-libreria.html'
+    [System.IO.File]::WriteAllText($f4f, (Get-Dashboard -CdnTags 0 -Head (
+        '<title>inlined by Inline-ChartJs.ps1</title><p>The above copyright notice and this ' +
+        'permission notice shall be included</p>')))
+    $r5f = Invoke-Inliner -File $f4f
+    Test-Check -Name 'marcador + aviso pero sin libreria tampoco cuenta' `
+        -Ok ($r5f.ExitCode -ne 0 -and $r5f.Output -notmatch 'Already standalone') `
+        -Detail "exit $($r5f.ExitCode)"
+
+    # --- sin licencia no se publica ------------------------------------------
+    # Preferible fallar a redistribuir codigo ajeno con el aviso quitado.
+    $fakeVendor = Join-Path $work 'vendor-sin-licencia'
+    New-Item -ItemType Directory -Path $fakeVendor -Force | Out-Null
+    Copy-Item (Join-Path $vendor 'chart.umd.min.js') $fakeVendor
+    $f5 = Join-Path $work 'sin-licencia.html'
+    [System.IO.File]::WriteAllText($f5, (Get-Dashboard))
+    $r6 = Invoke-Inliner -File $f5 -Extra @('-LibraryPath', (Join-Path $fakeVendor 'chart.umd.min.js'))
+    $t5 = [System.IO.File]::ReadAllText($f5)
+    Test-Check -Name 'sin chart.js.LICENSE.txt se niega a escribir' `
+        -Ok ($r6.ExitCode -ne 0 -and $t5.Contains($CDN)) `
+        -Detail "exit $($r6.ExitCode), archivo sin tocar"
+
+    # --- nada que inlinar -----------------------------------------------------
+    $f6 = Join-Path $work 'sin-cdn.html'
+    [System.IO.File]::WriteAllText($f6, (Get-Dashboard -CdnTags 0))
+    $r7 = Invoke-Inliner -File $f6
+    Test-Check -Name 'un archivo sin etiqueta CDN falla en vez de fingir exito' `
+        -Ok ($r7.ExitCode -ne 0) -Detail "exit $($r7.ExitCode)"
+}
+finally {
+    foreach ($p in $script:tempPaths) {
+        if ($p -and (Test-Path $p)) { Remove-Item $p -Recurse -Force -ErrorAction SilentlyContinue }
+    }
+}
+
+Write-Host ""
+if ($failures.Count -gt 0) {
+    Write-Host "INLINE-CHARTJS TESTS FAILED - $($failures.Count): $($failures -join '; ')" -ForegroundColor Red
+    exit 1
+}
+Write-Host "INLINE-CHARTJS TESTS PASSED" -ForegroundColor Green
+exit 0

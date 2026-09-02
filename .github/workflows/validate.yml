@@ -1,8 +1,9 @@
 # Validacion mecanica de los scripts PowerShell del repo.
 # Determinista y gratis: no consume cupo de ningun LLM.
-#   1. PSScriptAnalyzer sobre skills/ y tests/ (version fijada)
+#   1. PSScriptAnalyzer sobre skills/, tests/ y tools/ (version fijada)
 #   2. Smoke test de detect-colors + recolor contra una copia de examples/Demo
 #   3. Tests de tokens de color sobre un fixture sintetico (RGBA, #RGB, rgb(), BOM)
+#   4. Tests de Inline-ChartJs: el aviso MIT viaja en cada dashboard convertido
 name: Validate scripts
 
 on:
@@ -13,6 +14,7 @@ on:
     # rutas simplemente no dispara el workflow y no se queda colgada esperandolo.
     paths:
       - 'skills/**/*.ps1'
+      - 'tools/**/*.ps1'
       - 'tests/**'
       - 'examples/Demo/**'
       - 'PSScriptAnalyzerSettings.psd1'
@@ -56,7 +58,8 @@ jobs:
         run: |
           Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
           # tests/ is linted too: the harness can carry the same class of bug it exists to catch.
-          $results = @('skills','tests') | ForEach-Object {
+          # tools/ ships PowerShell too (Inline-ChartJs.ps1), so it is held to the same bar.
+          $results = @('skills','tests','tools') | ForEach-Object {
             Invoke-ScriptAnalyzer -Path $_ -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
           }
           $blocking = @($results | Where-Object { $_.Severity -in 'Error','Warning' })
@@ -82,3 +85,7 @@ jobs:
       - name: Color-token tests
         shell: pwsh
         run: ./tests/color-tokens-test.ps1
+
+      - name: Inline-ChartJs tests
+        shell: pwsh
+        run: ./tests/inline-chartjs-test.ps1
