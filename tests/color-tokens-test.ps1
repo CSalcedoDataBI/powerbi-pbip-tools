@@ -463,34 +463,34 @@ try {
         -Ok ($stillOriginal -eq 2) `
         -Detail "$stillOriginal/2 reportes conservan #0078D4"
 
-    # El caso de verdad: el backup del PRIMER reporte funciona y falla el del
-    # SEGUNDO. El de arriba no lo cubre - ahi nunca se llega al segundo, asi que
-    # pasaria igual si el script volviera a escribir el reporte A antes de
-    # intentar el backup de B, que es justo la regresion que hay que impedir.
+    # El caso de verdad es el ORDEN: ningun reporte puede quedar reescrito antes
+    # de que TODOS los backups esten en disco. La comprobacion de arriba no lo
+    # cubre - ahi falla el primero y nunca se llega al segundo, asi que pasaria
+    # igual si el script volviera a respaldar-y-escribir el reporte A antes de
+    # intentar el de B, que es justo la regresion a impedir.
     #
-    # Se fuerza por la longitud del nombre, no por ocuparlo: los nombres de backup
-    # llevan un GUID y ya no se pueden predecir. Un componente de ruta de mas de
-    # 255 caracteres falla en Windows y en Linux por igual (medido: 200 se crea,
-    # 260 lanza IOException), asi que un reporte de nombre largo hace fallar su
-    # New-Item y solo el suyo. El orden A-antes-que-B lo da Get-ChildItem.
-    $sqDir  = Get-ScopedTempPath -Prefix 'pbip-second'
-    $sqBack = Get-ScopedTempPath -Prefix 'pbip-secondback'
-    New-Item -ItemType Directory -Force -Path $sqBack | Out-Null
-    $longName = 'B' + ('o' * 200) + '.Report'
-    foreach ($r in 'A.Report', $longName) {
-        $rr = Join-Path (Join-Path (Join-Path $sqDir $r) 'StaticResources') 'RegisteredResources'
+    # Se prueba sobre la salida, no forzando un fallo: forzar que falle SOLO el
+    # segundo backup ya no es posible de forma determinista y multiplataforma -
+    # los nombres llevan un GUID, asi que no se pueden ocupar, y hacerlos fallar
+    # por longitud dejo de valer al acotar el nombre (que era un fallo real para
+    # un reporte de nombre largo). El orden, en cambio, es observable: las dos
+    # lineas 'Backup saved to' tienen que salir ANTES de la primera 'Modified'.
+    $ordDir  = Get-ScopedTempPath -Prefix 'pbip-order'
+    $ordBack = Get-ScopedTempPath -Prefix 'pbip-orderback'
+    New-Item -ItemType Directory -Force -Path $ordBack | Out-Null
+    foreach ($r in 'A.Report', 'B.Report') {
+        $rr = Join-Path (Join-Path (Join-Path $ordDir $r) 'StaticResources') 'RegisteredResources'
         New-Item -ItemType Directory -Force -Path $rr | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $rr 'icon.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
     }
-    $prevEap3 = $ErrorActionPreference
-    $ErrorActionPreference = 'Continue'
-    & $recolor -PbipDir $sqDir -To '#DC143C' -Backup -BackupRoot $sqBack *>&1 | Out-Null
-    $ErrorActionPreference = $prevEap3
-    $aIcon = Join-Path (Join-Path (Join-Path (Join-Path $sqDir 'A.Report') 'StaticResources') 'RegisteredResources') 'icon.svg'
-    $aBackedUp = @(Get-ChildItem -LiteralPath $sqBack -Directory -ErrorAction SilentlyContinue).Count
-    Test-Check -Name 'si falla el backup del 2o reporte, el 1o NO queda reescrito' `
-        -Ok ([System.IO.File]::ReadAllText($aIcon) -match '#0078D4' -and $aBackedUp -ge 1) `
-        -Detail "backups creados antes del fallo: $aBackedUp; A conserva su color original"
+    $ordOut = (& $recolor -PbipDir $ordDir -To '#DC143C' -Backup -BackupRoot $ordBack *>&1 | Out-String)
+    $ordLines = @($ordOut -split "`n" | Where-Object { $_ -match 'Backup saved to|Modified \d+/' })
+    $lastBackup   = [array]::LastIndexOf($ordLines, @($ordLines | Where-Object { $_ -match 'Backup saved to' })[-1])
+    $firstWrite   = [array]::IndexOf($ordLines, @($ordLines | Where-Object { $_ -match 'Modified \d+/' })[0])
+    $backupCount  = @($ordLines | Where-Object { $_ -match 'Backup saved to' }).Count
+    Test-Check -Name 'los backups de TODOS los reportes preceden a la primera escritura' `
+        -Ok ($backupCount -eq 2 -and $firstWrite -gt $lastBackup) `
+        -Detail "$backupCount backups; ultimo backup en la linea $lastBackup, primera escritura en la $firstWrite"
 
     # --- a linked .Report is a link too ----------------------------------------
     # The file-level guard does not cover this: the SVGs inside a junctioned

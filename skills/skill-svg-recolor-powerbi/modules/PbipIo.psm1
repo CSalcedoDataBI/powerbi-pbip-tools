@@ -137,12 +137,20 @@ function Get-BackupPath {
         [Parameter(Mandatory)][string]$Name
     )
     $stamp  = Get-Date -Format 'yyyyMMdd_HHmmss'
-    # El GUID entero, no un prefijo. Seis caracteres son 24 bits: bastan para
-    # que dos corridas casi nunca choquen, y 'casi nunca' es la misma clase de
-    # respuesta que dio el timestamp por segundo. Un nombre largo en la carpeta
-    # temporal no le cuesta nada a nadie.
+    # The whole GUID, not a prefix. Six hex characters are 24 bits: enough that
+    # two runs almost never collide, and "almost never" is the same class of
+    # answer the per-second timestamp gave.
     $unique = [guid]::NewGuid().ToString('N')
-    return (Join-Path $Root "pbip-recolor-backup_${Name}_${stamp}_${unique}")
+
+    # The report name is trimmed so the whole component stays under the 255-char
+    # limit a path segment has on Windows and Linux alike. Without this, a report
+    # folder longer than 186 characters - unusual, but a perfectly valid folder -
+    # made New-Item throw IOException and -Backup fail for a project that was in
+    # no way malformed. Uniqueness does not depend on the name, so trimming it
+    # costs nothing: the GUID is what keeps two runs apart.
+    $maxName = 255 - 'pbip-recolor-backup__'.Length - $stamp.Length - $unique.Length - 1
+    $safe = if ($Name.Length -gt $maxName) { $Name.Substring(0, $maxName) } else { $Name }
+    return (Join-Path $Root "pbip-recolor-backup_${safe}_${stamp}_${unique}")
 }
 
 Export-ModuleMember -Function Get-SvgFile, Join-PbipPath, Get-FileEncodingKind, Get-Utf8Encoding, Get-BackupPath
