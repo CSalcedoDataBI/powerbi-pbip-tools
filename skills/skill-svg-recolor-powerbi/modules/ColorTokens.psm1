@@ -1,17 +1,26 @@
 <#
 .SYNOPSIS
-  Shared color-token helpers for detect-colors.ps1 and recolor.ps1.
+  Deciding what, in an SVG, is a color - and what only looks like one.
 
 .DESCRIPTION
-  Dot-sourced by both scripts so detection and replacement can never drift apart.
-  Keeping one pattern in one file is the point: the bug this replaced came from
-  the two scripts each carrying their own copy of a 6-digit-only regex.
+  Imported by detect-colors.ps1 and recolor.ps1 so detection and replacement can
+  never drift apart. Keeping one pattern in one place is the point: the bug this
+  replaced came from the two scripts each carrying their own copy of a 6-digit-
+  only regex.
+
+  A module, not a dot-sourced script. Dot-sourcing injected the patterns below
+  into the CALLER's scope, which is harmless for two standalone scripts and not
+  harmless at all once this code is pasted into a larger runspace - the
+  invitation a public repository called "skills" extends. Import-Module keeps
+  that state inside the module and declares the public surface at the bottom, so
+  what callers may rely on is a decision rather than an accident of which
+  variables happened to sit at the top level.
+
+  WHAT THIS CAN AND CANNOT DECIDE is a stated contract, not an implementation
+  detail: see "Scope and limits" in ../SKILL.md, and issue #29 for the evidence
+  behind it. Do not add a new special case here without reading that first.
 #>
 
-# Every hex form an SVG may carry, LONGEST FIRST, with a trailing guard.
-#
-# Without the guard #RRGGBBAA matches as #RRGGBB with two characters left dangling,
-# so an 8-digit color is silently rewritten keeping the old alpha.
 $script:HexTokenPattern =
     '#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{4}|[0-9A-Fa-f]{3})(?![0-9A-Fa-f])'
 
@@ -430,93 +439,7 @@ function Get-UnsupportedNotation {
     return $found
 }
 
-function Get-SvgFile {
-    <#
-    .SYNOPSIS
-      Every .svg in a folder, whatever the case of the extension.
-    .DESCRIPTION
-      Get-ChildItem -Filter '*.svg' is case-insensitive on Windows and case-
-      SENSITIVE on Linux, where CI runs. An icon named ICON.SVG would simply not
-      exist as far as the tool was concerned - reported as 0/0, never recolored.
-    #>
-    param([Parameter(Mandatory)][string]$Path)
-    # -LiteralPath: a project folder called 'MyReport[1]' is a wildcard to
-    # -Path, and the whole project silently reads as empty.
-    return @(Get-ChildItem -LiteralPath $Path -File | Where-Object { $_.Extension -ieq '.svg' })
-}
-
-function Join-PbipPath {
-    <#
-    .SYNOPSIS
-      Build the RegisteredResources path without a hardcoded separator.
-    .DESCRIPTION
-      Nested calls rather than Join-Path's multi-argument form, which needs
-      PowerShell 6+; the README promises 5.1.
-    #>
-    param([Parameter(Mandatory)][string]$ReportDir)
-    return (Join-Path (Join-Path $ReportDir 'StaticResources') 'RegisteredResources')
-}
-
-$script:Utf8NoBom   = New-Object System.Text.UTF8Encoding($false)
-$script:Utf8WithBom = New-Object System.Text.UTF8Encoding($true)
-
-function Get-FileEncodingKind {
-    <#
-    .SYNOPSIS
-      Classify a file by its byte-order mark: Utf8Bom, Utf8NoBom, or Utf16.
-    .DESCRIPTION
-      Imposing one encoding on every file it touches is how this tool put a BOM
-      into every icon in the first place. Reading the mark and writing the same
-      one back means a recolor changes colors and nothing else.
-    #>
-    param([Parameter(Mandatory)][string]$Path)
-
-    # The WHOLE file, not a sample. Icon SVGs are small, and a 512-byte window
-    # both misses an invalid byte at offset 600 and can cut a codepoint in half,
-    # which would fail a perfectly good UTF-8 file.
-    $sample = [System.IO.File]::ReadAllBytes($Path)
-    $read = $sample.Length
-    $head = $sample
-
-    $hasUtf8Bom = ($read -ge 3 -and $head[0] -eq 0xEF -and $head[1] -eq 0xBB -and $head[2] -eq 0xBF)
-    if ($read -ge 2 -and (($head[0] -eq 0xFF -and $head[1] -eq 0xFE) -or ($head[0] -eq 0xFE -and $head[1] -eq 0xFF))) { return 'Utf16' }
-
-    # The strict decode runs for BOM files too, BEFORE trusting the mark. A BOM
-    # says what the author intended, not what the bytes are: EF BB BF followed by
-    # a stray 0xE9 is still invalid UTF-8, and returning early on the mark would
-    # let ReadAllText substitute a replacement character that the write makes
-    # permanent.
-    try {
-        $strict = New-Object System.Text.UTF8Encoding($false, $true)
-        # $sample[3..2] on a 3-byte file is a REVERSE slice, not an empty one: it
-        # hands back bytes 3 and 2, and the stray 0xBF then fails the decode. A
-        # file that is only a BOM is valid, empty UTF-8.
-        $body = if (-not $hasUtf8Bom) { $sample }
-                elseif ($sample.Length -gt 3) { $sample[3..($sample.Length - 1)] }
-                else { [byte[]]@() }
-        if ($body.Length -gt 0) { [void]$strict.GetString($body) }
-    } catch {
-        return 'Other'
-    }
-
-    if ($hasUtf8Bom) { return 'Utf8Bom' }
-
-    # UTF-16 without a BOM still has to be caught, or ReadAllText decodes it as
-    # UTF-8 and the file goes back out re-encoded. Two cheap signals: interleaved
-    # NUL bytes, which ASCII-range UTF-16 is full of, and the XML declaration.
-    if ($sample.Length -ge 4) {
-        $probe = [Math]::Min($sample.Length, 512)
-        $nulls = 0
-        for ($b = 0; $b -lt $probe; $b++) { if ($sample[$b] -eq 0) { $nulls++ } }
-        if (($nulls / $probe) -gt 0.2) { return 'Utf16' }
-    }
-    $ascii = [System.Text.Encoding]::ASCII.GetString($sample, 0, [Math]::Min($sample.Length, 512))
-    if ($ascii -match '(?i)<\?xml[^>]*encoding\s*=\s*["'']utf-16') { return 'Utf16' }
-
-    # An XML declaration naming anything other than UTF-8 means ReadAllText would
-    # decode the file wrongly and WriteAllText would then save that damage.
-    $declared = [regex]::Match($ascii, '(?i)<\?xml[^>]*encoding\s*=\s*["'']([^"'']+)')
-    if ($declared.Success -and $declared.Groups[1].Value -notmatch '(?i)^utf-?8$') { return 'Other' }
-
-    return 'Utf8NoBom'
-}
+# The declared public surface. Get-CssValueRange and Get-PaintValueKind stay
+# private on purpose: they are how the answer is computed, not what the answer
+# is, and exporting them would make the CSS-masking pass part of the contract.
+Export-ModuleMember -Function Get-ColorTokenMatch, Get-CanonicalHex, Test-HexColor, Get-UnsupportedNotation

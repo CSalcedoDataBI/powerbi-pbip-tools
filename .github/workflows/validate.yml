@@ -4,6 +4,7 @@
 #   2. Smoke test de detect-colors + recolor contra una copia de examples/Demo
 #   3. Tests de tokens de color sobre un fixture sintetico (RGBA, #RGB, rgb(), BOM)
 #   4. Tests de Inline-ChartJs: el aviso MIT viaja en cada dashboard convertido
+#   5. Tests de SVG embebidos: -Scope Dax/Visuals contra examples/DynamicIcons
 name: Validate scripts
 
 on:
@@ -14,9 +15,11 @@ on:
     # rutas simplemente no dispara el workflow y no se queda colgada esperandolo.
     paths:
       - 'skills/**/*.ps1'
+      - 'skills/**/*.psm1'
       - 'tools/**/*.ps1'
       - 'tests/**'
       - 'examples/Demo/**'
+      - 'examples/DynamicIcons/**'
       - 'PSScriptAnalyzerSettings.psd1'
       - '.github/workflows/validate.yml'
 
@@ -59,8 +62,23 @@ jobs:
           Import-Module PSScriptAnalyzer -RequiredVersion $env:PSSA_VERSION
           # tests/ is linted too: the harness can carry the same class of bug it exists to catch.
           # tools/ ships PowerShell too (Inline-ChartJs.ps1), so it is held to the same bar.
-          $results = @('skills','tests','tools') | ForEach-Object {
-            Invoke-ScriptAnalyzer -Path $_ -Recurse -Settings ./PSScriptAnalyzerSettings.psd1
+          # PSSA 1.25.0 has thrown "Object reference not set to an instance of an
+          # object" mid-analysis - seen three times locally and not reproducible on
+          # demand afterwards (0/25 per file, 0/10 on this exact command). A crash is
+          # the tool failing to run, not a finding, so it is retried rather than
+          # reported: what must never be retried away is a real finding, and those
+          # come back identically on the next attempt. Three tries, then let it fail.
+          $results = $null
+          foreach ($try in 1..3) {
+            try {
+              $results = @('skills','tests','tools') | ForEach-Object {
+                Invoke-ScriptAnalyzer -Path $_ -Recurse -Settings ./PSScriptAnalyzerSettings.psd1 -ErrorAction Stop
+              }
+              break
+            } catch {
+              Write-Output "::warning::PSScriptAnalyzer crasheo (intento $try/3): $($_.Exception.Message)"
+              if ($try -eq 3) { throw }
+            }
           }
           $blocking = @($results | Where-Object { $_.Severity -in 'Error','Warning' })
           $advisory  = @($results | Where-Object { $_.Severity -eq 'Information' })
@@ -89,3 +107,7 @@ jobs:
       - name: Inline-ChartJs tests
         shell: pwsh
         run: ./tests/inline-chartjs-test.ps1
+
+      - name: Embedded-SVG tests (-Scope Dax / Visuals)
+        shell: pwsh
+        run: ./tests/embedded-svg-test.ps1

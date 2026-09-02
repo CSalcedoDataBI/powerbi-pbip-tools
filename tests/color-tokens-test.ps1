@@ -19,6 +19,7 @@ param()
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 $scripts  = Join-Path $repoRoot 'skills/skill-svg-recolor-powerbi/scripts'
+$modules  = Join-Path $repoRoot 'skills/skill-svg-recolor-powerbi/modules'
 $detect   = Join-Path $scripts 'detect-colors.ps1'
 $recolor  = Join-Path $scripts 'recolor.ps1'
 
@@ -184,7 +185,8 @@ try {
     # Round 7 found five ways the CSS scan gave a wrong answer, all of them about
     # delimiters living inside strings and url(). These pin each one: the table is
     # (svg text -> exactly the tokens that must be treated as colors).
-    . (Join-Path $scripts 'ColorTokens.ps1')
+    Import-Module (Join-Path $modules 'ColorTokens.psm1') -Force
+    Import-Module (Join-Path $modules 'PbipIo.psm1') -Force
     $cssCases = @(
         @{ n = 'hex in a content string is text';       t = '<svg><style>.a::before{content:"#fff";fill:#000}</style></svg>';                       e = '#000' }
         @{ n = 'external fragment url(file.svg#id)';  t = '<svg><path filter="url(filters.svg#abc)" fill="#0078D4"/></svg>';                       e = '#0078D4' }
@@ -429,30 +431,66 @@ try {
         -Detail (($mcOut -split "`n" | Where-Object { $_ -match 'Modified' }) -join ' | ')
 
     # --- -Backup is all-or-nothing across reports ------------------------------
-    # A backup that fails on the SECOND report must not leave the first one
-    # already rewritten: that is a half-recolored project plus a failure message.
+    # A failed backup must leave EVERY report untouched, not just the one whose
+    # backup failed: the alternative is a half-recolored project plus an error
+    # message, which is worse than not running at all.
+    #
+    # This used to force the failure by occupying every backup name the second
+    # report could pick for the next 90 seconds. That stopped working, and for a
+    # good reason: backup directory names now carry a random suffix, because a
+    # name built only from a per-second timestamp meant two runs in the same
+    # second collided and the second refused to back up - reproduced, and it was
+    # reddening CI. So the failure is forced at the root instead: -BackupRoot
+    # points at a FILE, so creating a directory under it cannot succeed for any
+    # report.
     $paDir  = Get-ScopedTempPath -Prefix 'pbip-partial'
     $paBack = Get-ScopedTempPath -Prefix 'pbip-block'
-    New-Item -ItemType Directory -Force -Path $paBack | Out-Null
+    [System.IO.File]::WriteAllText($paBack, 'not a directory', $utf8NoBom)
     foreach ($r in 'A.Report', 'B.Report') {
         $rr = Join-Path (Join-Path (Join-Path $paDir $r) 'StaticResources') 'RegisteredResources'
         New-Item -ItemType Directory -Force -Path $rr | Out-Null
         [System.IO.File]::WriteAllText((Join-Path $rr 'icon.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
     }
-    # Occupy every backup name B could pick for the next 90 seconds, so its
-    # New-Item throws while A's has already succeeded.
-    for ($i = 0; $i -lt 90; $i++) {
-        $stamp = (Get-Date).AddSeconds($i).ToString('yyyyMMdd_HHmmss')
-        New-Item -ItemType File -Force -Path (Join-Path $paBack "pbip-recolor-backup_B.Report_$stamp") | Out-Null
-    }
     $prevEap2 = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     & $recolor -PbipDir $paDir -To '#DC143C' -Backup -BackupRoot $paBack *>&1 | Out-Null
     $ErrorActionPreference = $prevEap2
-    $aPath = Join-Path (Join-Path (Join-Path (Join-Path $paDir 'A.Report') 'StaticResources') 'RegisteredResources') 'icon.svg'
-    Test-Check -Name 'si el backup falla en el 2o reporte, el 1o queda intacto' `
-        -Ok ([System.IO.File]::ReadAllText($aPath) -match '#0078D4') `
-        -Detail ([System.IO.File]::ReadAllText($aPath))
+    $paths = 'A.Report', 'B.Report' | ForEach-Object {
+        Join-Path (Join-Path (Join-Path (Join-Path $paDir $_) 'StaticResources') 'RegisteredResources') 'icon.svg'
+    }
+    $stillOriginal = @($paths | Where-Object { [System.IO.File]::ReadAllText($_) -match '#0078D4' }).Count
+    Test-Check -Name 'si el backup falla, NINGUN reporte queda reescrito' `
+        -Ok ($stillOriginal -eq 2) `
+        -Detail "$stillOriginal/2 reportes conservan #0078D4"
+
+    # El caso de verdad es el ORDEN: ningun reporte puede quedar reescrito antes
+    # de que TODOS los backups esten en disco. La comprobacion de arriba no lo
+    # cubre - ahi falla el primero y nunca se llega al segundo, asi que pasaria
+    # igual si el script volviera a respaldar-y-escribir el reporte A antes de
+    # intentar el de B, que es justo la regresion a impedir.
+    #
+    # Se prueba sobre la salida, no forzando un fallo: forzar que falle SOLO el
+    # segundo backup ya no es posible de forma determinista y multiplataforma -
+    # los nombres llevan un GUID, asi que no se pueden ocupar, y hacerlos fallar
+    # por longitud dejo de valer al acotar el nombre (que era un fallo real para
+    # un reporte de nombre largo). El orden, en cambio, es observable: las dos
+    # lineas 'Backup saved to' tienen que salir ANTES de la primera 'Modified'.
+    $ordDir  = Get-ScopedTempPath -Prefix 'pbip-order'
+    $ordBack = Get-ScopedTempPath -Prefix 'pbip-orderback'
+    New-Item -ItemType Directory -Force -Path $ordBack | Out-Null
+    foreach ($r in 'A.Report', 'B.Report') {
+        $rr = Join-Path (Join-Path (Join-Path $ordDir $r) 'StaticResources') 'RegisteredResources'
+        New-Item -ItemType Directory -Force -Path $rr | Out-Null
+        [System.IO.File]::WriteAllText((Join-Path $rr 'icon.svg'), '<svg><path fill="#0078D4"/></svg>', $utf8NoBom)
+    }
+    $ordOut = (& $recolor -PbipDir $ordDir -To '#DC143C' -Backup -BackupRoot $ordBack *>&1 | Out-String)
+    $ordLines = @($ordOut -split "`n" | Where-Object { $_ -match 'Backup saved to|Modified \d+/' })
+    $lastBackup   = [array]::LastIndexOf($ordLines, @($ordLines | Where-Object { $_ -match 'Backup saved to' })[-1])
+    $firstWrite   = [array]::IndexOf($ordLines, @($ordLines | Where-Object { $_ -match 'Modified \d+/' })[0])
+    $backupCount  = @($ordLines | Where-Object { $_ -match 'Backup saved to' }).Count
+    Test-Check -Name 'los backups de TODOS los reportes preceden a la primera escritura' `
+        -Ok ($backupCount -eq 2 -and $firstWrite -gt $lastBackup) `
+        -Detail "$backupCount backups; ultimo backup en la linea $lastBackup, primera escritura en la $firstWrite"
 
     # --- a linked .Report is a link too ----------------------------------------
     # The file-level guard does not cover this: the SVGs inside a junctioned
@@ -565,6 +603,50 @@ try {
     $out = & $recolor -PbipDir $work -To '#123456' 6>&1 3>&1 | Out-String
     Test-Check -Name 'recolor avisa de las notaciones que no reescribio' `
         -Ok ($out -match 'NOT rewritten' -or $out -match 'rgb\(\)') -Detail 'aviso presente al final'
+
+    # --- el modulo no se filtra al llamador (#28) -------------------------------
+    # El criterio de aceptacion del issue, literal: una sesion que define
+    # $HexTokenPattern por su cuenta no debe verlo alterado por cargar esto. Con
+    # dot-sourcing lo veia; ese era el problema. Se comprueba en una sesion nueva
+    # porque esta ya importo el modulo mas arriba.
+    $probe = @'
+$HexTokenPattern   = 'CENTINELA-DEL-ANFITRION'
+$StyleBlockPattern = 'CENTINELA-2'
+Import-Module '{0}' -Force
+Import-Module '{1}' -Force
+$leak1 = $HexTokenPattern
+$leak2 = $StyleBlockPattern
+# Lo privado sigue privado: exportarlo haria del enmascarado CSS parte del contrato.
+$priv  = @(Get-Command Get-CssValueRange, Get-PaintValueKind -ErrorAction SilentlyContinue).Count
+# Y lo publico si esta.
+$pub   = @(Get-Command Get-ColorTokenMatch, Get-CanonicalHex, Test-HexColor, Get-UnsupportedNotation, Get-SvgFile, Join-PbipPath, Get-FileEncodingKind, Get-Utf8Encoding -ErrorAction SilentlyContinue).Count
+"$leak1|$leak2|$priv|$pub"
+'@ -f (Join-Path $modules 'ColorTokens.psm1'), (Join-Path $modules 'PbipIo.psm1')
+
+    $probeFile = Join-Path ([System.IO.Path]::GetTempPath()) ("probe-" + [guid]::NewGuid().ToString('N').Substring(0,8) + ".ps1")
+    $script:tempPaths += $probeFile
+    [System.IO.File]::WriteAllText($probeFile, $probe)
+    $probeOut = (& pwsh -NoProfile -File $probeFile 2>&1 | Out-String).Trim()
+    $parts = $probeOut -split '\|'
+
+    Test-Check -Name 'importar el modulo no pisa variables del anfitrion' `
+        -Ok ($parts.Count -eq 4 -and $parts[0] -eq 'CENTINELA-DEL-ANFITRION' -and $parts[1] -eq 'CENTINELA-2') `
+        -Detail "el anfitrion conserva: $($parts[0]), $($parts[1])"
+
+    Test-Check -Name 'la superficie publica es la declarada, ni mas ni menos' `
+        -Ok ($parts.Count -eq 4 -and $parts[2] -eq '0' -and $parts[3] -eq '8') `
+        -Detail "privadas visibles: $($parts[2]) (debe ser 0) / publicas: $($parts[3]) de 8"
+
+    # Get-Utf8Encoding sustituye a las dos variables que el dot-sourcing filtraba.
+    # Un kind desconocido tiene que ser un error de parametro, no un $null que
+    # acaba escribiendo UTF-16 sobre cada icono.
+    $encBom   = Get-Utf8Encoding -Kind 'Utf8Bom'
+    $encNoBom = Get-Utf8Encoding -Kind 'Utf8NoBom'
+    $rejected = $false
+    try { Get-Utf8Encoding -Kind 'Utf16' | Out-Null } catch { $rejected = $true }
+    Test-Check -Name 'Get-Utf8Encoding da el BOM correcto y rechaza lo que no conoce' `
+        -Ok ($encBom.GetPreamble().Length -eq 3 -and $encNoBom.GetPreamble().Length -eq 0 -and $rejected) `
+        -Detail "preambulo con BOM: $($encBom.GetPreamble().Length) / sin BOM: $($encNoBom.GetPreamble().Length) / kind invalido rechazado: $rejected"
 }
 finally {
     # Only the paths this run created, by exact name. The inline Remove-Item calls

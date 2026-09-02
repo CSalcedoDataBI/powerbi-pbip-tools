@@ -1,0 +1,22 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "v1",
+  "position": { "x": 0, "y": 0, "z": 0, "width": 320, "height": 200 },
+  "visual": {
+    "visualType": "image",
+    "objects": {
+      "general": [
+        {
+          "properties": {
+            "imageUrl": {
+              "expr": { "Literal": { "Value": "'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PGRlZnM+PGxpbmVhckdyYWRpZW50IGlkPSJnIj48c3RvcCBzdG9wLWNvbG9yPSIjMDA3OEQ0Ii8+PC9saW5lYXJHcmFkaWVudD48L2RlZnM+PGNpcmNsZSBjeD0iOCIgY3k9IjgiIHI9IjciIGZpbGw9InVybCgjZykiIHN0cm9rZT0iIzAwNzhENCIvPjwvc3ZnPg=='" } }
+            }
+          }
+        }
+      ],
+      "title": [
+        { "properties": { "text": { "expr": { "Literal": { "Value": "'Ventas #1 del trimestre'" } } } } }
+      ]
+    }
+  }
+}
