@@ -187,6 +187,9 @@ try {
     . (Join-Path $scripts 'ColorTokens.ps1')
     $cssCases = @(
         @{ n = 'hex in a content string is text';       t = '<svg><style>.a::before{content:"#fff";fill:#000}</style></svg>';                       e = '#000' }
+        @{ n = 'external fragment url(file.svg#id)';  t = '<svg><path filter="url(filters.svg#abc)" fill="#0078D4"/></svg>';                       e = '#0078D4' }
+        @{ n = 'external fragment WITH a fallback';   t = '<svg><path fill="url(resources.svg#abc) #0078D4"/></svg>';                            e = '#0078D4' }
+        @{ n = 'external fragment in a style attr';   t = '<svg><path style="filter:url(f.svg#abc)" fill="#0078D4"/></svg>';                     e = '#0078D4' }
         @{ n = 'quoted url() body may contain a paren'; t = '<svg><style>.a{background:url("icons/foo)#fff");fill:#000}</style></svg>';               e = '#000' }
         @{ n = 'hex in a url() fragment is an id';      t = '<svg><style>.a{background-image:url("/s.svg#fff");fill:#000}</style></svg>';           e = '#000' }
         @{ n = 'a brace inside a string is not a brace'; t = '<svg><style>.a::before{content:"}";fill:#fff}</style></svg>';                          e = '#fff' }

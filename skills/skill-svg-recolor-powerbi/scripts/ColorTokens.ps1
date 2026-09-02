@@ -26,12 +26,17 @@ $script:HexTokenPattern =
 # The quote is optional and may also arrive XML-escaped: inside a double-quoted
 # attribute, url('#a') is often written url(&apos;#a&apos;).
 #
+# The url() branch allows an optional PATH before the '#': url(filters.svg#abc)
+# points at a fragment of another document exactly as url(#abc) points at one of
+# this one. Without it the id was read as a color, rewritten, and the filter or
+# gradient reference broke - while the file reported as modified.
+#
 # The id character classes stop at '&' and whitespace as well as at the quotes.
 # Without that, an entity-quoted href has no closing delimiter the class
 # recognises, so the span runs on past the attribute and can swallow a real
 # color further down the line - excluding it from being rewritten at all.
 $script:FragmentRefPattern =
-    '(?i)(?:url\s*\(\s*(?:["'']|&apos;|&quot;)?\s*#[^)"''\s&]+' +
+    '(?i)(?:url\s*\(\s*(?:["'']|&apos;|&quot;)?\s*[^)"''\s&#]*#[^)"''\s&]+' +
     '|(?:xlink:)?href\s*=\s*(?:["'']|&apos;|&quot;)\s*#[^"''\s>&]*)'
 
 # Inside a <style> block, CSS has two uses for '#' and only one is a color:
