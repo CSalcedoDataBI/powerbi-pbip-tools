@@ -50,8 +50,12 @@ $hasMarker = $html.Contains($marker)
 # "Already done" has to mean the file is in that state, not merely that the
 # marker text appears somewhere in it. A dashboard carries arbitrary titles and
 # data: if one happened to contain the marker string, trusting it on its own
-# would leave the CDN tag in place AND skip the license notice, silently.
-if ($hasMarker -and $cdnTags.Count -eq 0) {
+# would report success over a file with no library and no license notice. So the
+# marker only counts when the notice it is supposed to accompany is there too.
+$noticeLine = 'The above copyright notice and this permission notice shall be included'
+$hasNotice  = $html.Contains($noticeLine)
+
+if ($hasMarker -and $hasNotice -and $cdnTags.Count -eq 0) {
     Write-Host "Already standalone: $([System.IO.Path]::GetFileName($Path))"
     exit 0
 }
@@ -59,6 +63,12 @@ if ($hasMarker -and $cdnTags.Count -gt 0) {
     Write-Error ("$Path carries the marker but still loads Chart.js from a CDN. Either the " +
                  'conversion was interrupted, or the marker text came from the dashboard ' +
                  'content. Refusing to guess which.')
+    exit 1
+}
+if ($hasMarker -and -not $hasNotice) {
+    Write-Error ("$Path carries the marker but not the license notice that always goes with " +
+                 'it. Either it was edited after conversion, or the marker text came from the ' +
+                 'dashboard content. Refusing to call it converted.')
     exit 1
 }
 if ($cdnTags.Count -eq 0) {
@@ -134,7 +144,12 @@ Write-Host ("  {0:N0} -> {1:N0} bytes." -f $before, $after)
 # Removing the Chart.js tag is not the same as the file being offline: a dashboard
 # may pull in something else. Report what is actually left rather than letting the
 # caller infer a guarantee this script cannot make.
-$externalRef = '(?is)<(?:script|link|img|iframe)\b[^>]*\b(?:src|href)\s*=\s*["'']https?://[^"'']+["'']'
+#
+# The unquoted alternative is not pedantry: HTML allows <img src=https://...> and
+# a scan that only understood quotes would print "no external references remain"
+# over a file that still needs the network - the exact claim this exists to avoid.
+$externalRef = '(?is)<(?:script|link|img|iframe)\b[^>]*\b(?:src|href)\s*=\s*' +
+               '(?:"https?://[^"]*"|''https?://[^'']*''|https?://[^\s>]+)'
 $remaining = @([regex]::Matches($out, $externalRef))
 if ($remaining.Count -eq 0) {
     Write-Host '  No external references remain: it renders with no network access.'

@@ -137,9 +137,11 @@ try {
     Test-Check -Name 'quita todas las etiquetas CDN, no solo la primera' `
         -Ok ($r4.ExitCode -eq 0 -and -not $t3.Contains('cdn.jsdelivr.net')) `
         -Detail 'ninguna cdn.jsdelivr.net sobrevive'
+    # Contar el marcador no sirve: puede venir del contenido del dashboard. Lo que
+    # cuenta copias de la libreria es la cabecera del propio bundle vendorizado.
     Test-Check -Name 'y embebe la libreria una sola vez' `
-        -Ok (([regex]::Matches($t3, [regex]::Escape('inlined by Inline-ChartJs.ps1'))).Count -eq 1) `
-        -Detail 'un solo bloque inlinado'
+        -Ok (([regex]::Matches($t3, [regex]::Escape('/*! Chart.js v4.4.1 |'))).Count -eq 1) `
+        -Detail 'una sola copia del bundle'
 
     # --- otras referencias externas ------------------------------------------
     # Quitar Chart.js no es lo mismo que estar offline. El script debe decir lo
@@ -153,6 +155,29 @@ try {
              $r5.Output -match 'fonts\.googleapis\.com' -and
              $r5.Output -notmatch 'No external references remain') `
         -Detail 'no afirma offline cuando no lo es'
+
+    # HTML admite atributos sin comillas. Un escaneo que solo entendiera comillas
+    # diria "no quedan referencias externas" sobre un archivo que sigue necesitando
+    # la red: justo la afirmacion que este aviso existe para no hacer.
+    $f4b = Join-Path $work 'externa-sin-comillas.html'
+    [System.IO.File]::WriteAllText($f4b, (Get-Dashboard -Head '<img src=https://example.com/logo.png>'))
+    $r5b = Invoke-Inliner -File $f4b
+    Test-Check -Name 'detecta tambien las referencias externas sin comillas' `
+        -Ok ($r5b.ExitCode -eq 0 -and $r5b.Output -match 'WARNING' -and
+             $r5b.Output -match 'example\.com' -and
+             $r5b.Output -notmatch 'No external references remain') `
+        -Detail 'src=https://... sin comillas'
+
+    # --- marcador sin el aviso que siempre lo acompana ------------------------
+    # Sin etiqueta CDN y con el marcador venido del contenido, la version anterior
+    # decia "ya es autonomo" sobre un archivo sin libreria y sin licencia.
+    $f4c = Join-Path $work 'marcador-sin-aviso.html'
+    [System.IO.File]::WriteAllText($f4c,
+        (Get-Dashboard -Head '<title>inlined by Inline-ChartJs.ps1</title>' -CdnTags 0))
+    $r5c = Invoke-Inliner -File $f4c
+    Test-Check -Name 'marcador sin aviso MIT no cuenta como convertido' `
+        -Ok ($r5c.ExitCode -ne 0 -and $r5c.Output -notmatch 'Already standalone') `
+        -Detail "exit $($r5c.ExitCode)"
 
     # --- sin licencia no se publica ------------------------------------------
     # Preferible fallar a redistribuir codigo ajeno con el aviso quitado.
