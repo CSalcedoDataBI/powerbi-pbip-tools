@@ -108,9 +108,20 @@ dependency, run the script once against the generated file:
 pwsh tools/dashboard/Inline-ChartJs.ps1 -Path <OUTPUT_BASE>/dashboards/contoso_2025.html
 ```
 
-It replaces the `<script src="...">` with the vendored copy of the library, plus its MIT
-notice. The file grows from ~44 KB to ~245 KB and has zero external references. Running it
-twice is a no-op.
+It replaces the Chart.js `<script src="...">` with the vendored copy of the library, plus
+its MIT notice, and the file grows from ~44 KB to ~245 KB. Chart.js is the only thing it
+removes, so it finishes by reporting any other external reference the dashboard still
+carries — a web font, an image — rather than letting you assume an offline guarantee it
+cannot give. A dashboard from the stock template has none, and prints:
+
+```
+  No external references remain: it renders with no network access.
+```
+
+Running it twice is a no-op. It refuses to run on a file that carries its marker but still
+has a CDN tag: that means either an interrupted conversion or marker text that came from
+the dashboard's own content, and guessing which would risk shipping the library with the
+license notice stripped.
 
 It is a separate step, not part of the template, because the library is 200 KB of minified
 JavaScript: carrying that blob through every read-and-rewrite of the template would be slow,

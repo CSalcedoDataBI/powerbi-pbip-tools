@@ -3,6 +3,7 @@
 #   1. PSScriptAnalyzer sobre skills/, tests/ y tools/ (version fijada)
 #   2. Smoke test de detect-colors + recolor contra una copia de examples/Demo
 #   3. Tests de tokens de color sobre un fixture sintetico (RGBA, #RGB, rgb(), BOM)
+#   4. Tests de Inline-ChartJs: el aviso MIT viaja en cada dashboard convertido
 name: Validate scripts
 
 on:
@@ -84,3 +85,7 @@ jobs:
       - name: Color-token tests
         shell: pwsh
         run: ./tests/color-tokens-test.ps1
+
+      - name: Inline-ChartJs tests
+        shell: pwsh
+        run: ./tests/inline-chartjs-test.ps1
