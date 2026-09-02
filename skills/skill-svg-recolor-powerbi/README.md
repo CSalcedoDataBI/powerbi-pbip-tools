@@ -2,6 +2,10 @@
 
 Automatically change the color of **all SVG icons** in your Power BI PBIP project.
 
+> **Start here:** [SKILL.md](SKILL.md) (ES) · [SKILL.en.md](SKILL.en.md) (EN) — the skill
+> definition, the parameter surface and, most importantly, **what this tool guarantees and
+> what it only reports**. This README is the long-form guide that follows from it.
+
 ## 🏷️ Clone Only This Skill
 
 ```bash
