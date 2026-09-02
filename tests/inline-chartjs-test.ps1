@@ -228,6 +228,20 @@ try {
              $t4i.Contains('Permission is hereby granted')) `
         -Detail 'unpkg.com/chart.js@4.4.1/dist/chart.js'
 
+    # El escaneo de avisos entiende atributos sin comillas; el conversor tambien
+    # tiene que hacerlo, o dejaria la pagina cargando Chart.js de la red diciendo
+    # que no habia nada que inlinar.
+    $f4j = Join-Path $work 'cdn-sin-comillas.html'
+    [System.IO.File]::WriteAllText($f4j,
+        '<html><head><script src=https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js>' +
+        '</script></head><body></body></html>')
+    $r5j = Invoke-Inliner -File $f4j
+    $t4j = [System.IO.File]::ReadAllText($f4j)
+    Test-Check -Name 'convierte una etiqueta CDN con src sin comillas' `
+        -Ok ($r5j.ExitCode -eq 0 -and -not $t4j.Contains('cdn.jsdelivr.net') -and
+             $t4j.Contains('Permission is hereby granted')) `
+        -Detail '<script src=https://... sin comillas>'
+
     # --- marcador sin el aviso que siempre lo acompana ------------------------
     # Sin etiqueta CDN y con el marcador venido del contenido, la version anterior
     # decia "ya es autonomo" sobre un archivo sin libreria y sin licencia.

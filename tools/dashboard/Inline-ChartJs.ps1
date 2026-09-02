@@ -50,8 +50,16 @@ $html = [System.IO.File]::ReadAllText($Path)
 # The filename is anchored to a path segment rather than matched as a substring.
 # 'chart' anywhere in the URL would also claim highcharts.js and flowchart.js -
 # deleting a dependency the page needs and injecting Chart.js in its place.
-$cdnTag = '(?is)<script\b[^>]*?\bsrc\s*=\s*["'']https?://[^"'']*' +
-          '/chart(?:\.umd)?(?:\.min)?\.js(?:\?[^"'']*)?["''][^>]*>\s*</script>'
+#
+# Unquoted too, for the same reason the warning scan reads unquoted attributes:
+# <script src=https://.../chart.umd.min.js></script> is valid HTML, and refusing
+# to convert it would leave the page loading Chart.js from the network while the
+# script reports there was nothing to inline.
+$chartFile = '/chart(?:\.umd)?(?:\.min)?\.js'
+$cdnTag = '(?is)<script\b[^>]*?\bsrc\s*=\s*(?:' +
+          "[`"']https?://[^`"']*$chartFile(?:\?[^`"']*)?[`"']" + '|' +
+          "https?://[^\s>`"']*$chartFile(?:\?[^\s>`"']*)?" + ')' +
+          '[^>]*>\s*</script>'
 $cdnTags = @([regex]::Matches($html, $cdnTag))
 $hasMarker = $html.Contains($marker)
 
