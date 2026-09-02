@@ -137,7 +137,11 @@ function Get-BackupPath {
         [Parameter(Mandatory)][string]$Name
     )
     $stamp  = Get-Date -Format 'yyyyMMdd_HHmmss'
-    $unique = [guid]::NewGuid().ToString('N').Substring(0, 6)
+    # El GUID entero, no un prefijo. Seis caracteres son 24 bits: bastan para
+    # que dos corridas casi nunca choquen, y 'casi nunca' es la misma clase de
+    # respuesta que dio el timestamp por segundo. Un nombre largo en la carpeta
+    # temporal no le cuesta nada a nadie.
+    $unique = [guid]::NewGuid().ToString('N')
     return (Join-Path $Root "pbip-recolor-backup_${Name}_${stamp}_${unique}")
 }
 
