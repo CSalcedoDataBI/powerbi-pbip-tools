@@ -121,6 +121,34 @@ git sparse-checkout set commands skills/dashboard-builder.md tools/dashboard
 
 ---
 
+## 📁 Examples
+
+### 🧮 DAX User-Defined Functions
+
+A complete, version-controlled PBIP project showing **DAX User-Defined Functions** — the
+headline modelling feature of 2026, GA in June — written as TMDL and tracked in git.
+
+![PerformanceBand function in the Power BI Desktop TMDL editor](examples/DAX-User-Defined-Functions/DAX%20User-Defined%20Functions.PNG)
+
+**What's inside:** 6 functions in `functions.tmdl` (`GrossMarginPct`, `SafeDivide`,
+`ClassifyValue`, `YoYGrowth`, `ShareOfTotal` and `PerformanceBand`), 11 measures that
+consume them, 7 TMDL scripts and the `financials.csv` dataset the model loads.
+
+**Use Case:** You want to see what a UDF looks like in source control before writing your
+own — the parameter types (`ANYREF` vs `SCALAR`), where the functions live in the TMDL
+tree, and how measures call them.
+
+**Clone only this example:**
+```bash
+git clone --filter=blob:none --sparse https://github.com/CSalcedoDataBI/powerbi-pbip-tools.git
+cd powerbi-pbip-tools
+git sparse-checkout set examples/DAX-User-Defined-Functions
+```
+
+**[📖 Read the example documentation →](examples/DAX-User-Defined-Functions/README.md)** · **[📝 Full article (Spanish)](https://www.csalcedodatabi.com/blog/dax-user-defined-functions-referencia/)**
+
+---
+
 ## 🚀 Getting Started
 
 ### Prerequisites
@@ -161,6 +189,7 @@ git sparse-checkout set commands skills/dashboard-builder.md tools/dashboard
 - **[SVG Recolor README](skills/skill-svg-recolor-powerbi/README.md)** - Skill-specific documentation
 - **[Semantic Architect ES](skills/skill-semantic-architect-powerbi/SKILL.md)** - Documentación en español
 - **[Semantic Architect EN](skills/skill-semantic-architect-powerbi/SKILL.en.md)** - Full English specification
+- **[DAX User-Defined Functions example](examples/DAX-User-Defined-Functions/README.md)** - Reference PBIP project with 6 UDFs and 11 measures
 
 ---
 
