@@ -2,6 +2,7 @@
 # Determinista y gratis: no consume cupo de ningun LLM.
 #   1. PSScriptAnalyzer sobre skills/ y tests/ (version fijada)
 #   2. Smoke test de detect-colors + recolor contra una copia de examples/Demo
+#   3. Tests de tokens de color sobre un fixture sintetico (RGBA, #RGB, rgb(), BOM)
 name: Validate scripts
 
 on:
@@ -77,3 +78,7 @@ jobs:
       - name: Smoke test (detect-colors + recolor)
         shell: pwsh
         run: ./tests/smoke-test.ps1
+
+      - name: Color-token tests
+        shell: pwsh
+        run: ./tests/color-tokens-test.ps1
