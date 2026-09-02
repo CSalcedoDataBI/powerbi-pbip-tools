@@ -19,7 +19,10 @@
 #>
 param (
     [Parameter(Mandatory)][string]$PbipDir,
-    [switch]$PassThru
+    [switch]$PassThru,
+    # Mirrors recolor.ps1, and defaults the same way. Detecting more than the
+    # recolor step would rewrite would be its own kind of lie.
+    [ValidateSet('Resources', 'Dax', 'Visuals', 'All')][string]$Scope = 'Resources'
 )
 
 # Import-Module, not dot-sourcing: the patterns and encodings stay inside the
@@ -28,11 +31,16 @@ param (
 $moduleDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'modules'
 Import-Module (Join-Path $moduleDir 'ColorTokens.psm1') -Force
 Import-Module (Join-Path $moduleDir 'PbipIo.psm1') -Force
+Import-Module (Join-Path $moduleDir 'SvgPayload.psm1') -Force
 
 # --- Locate all .Report folders (supports multiple reports in one project) ---
 # -LiteralPath throughout: brackets in a folder name are wildcards to -Path.
-$reportDirs = Get-ChildItem -LiteralPath $PbipDir -Filter "*.Report" -Directory
-if (-not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
+$doResources = $Scope -in @('Resources', 'All')
+$doDax       = $Scope -in @('Dax', 'All')
+$doVisuals   = $Scope -in @('Visuals', 'All')
+
+$reportDirs = if ($doResources) { @(Get-ChildItem -LiteralPath $PbipDir -Filter "*.Report" -Directory) } else { @() }
+if ($doResources -and -not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
 
 $processedReports = 0
 $results = @()
@@ -118,9 +126,72 @@ foreach ($reportDir in $reportDirs) {
     Write-Host ""
 }
 
+# --- SVGs embedded in .tmdl and visual.json ----------------------------------
+$payloadKinds = @()
+if ($doDax)     { $payloadKinds += 'Dax' }
+if ($doVisuals) { $payloadKinds += 'Visual' }
+
+foreach ($kind in $payloadKinds) {
+    $label = if ($kind -eq 'Dax') { 'DAX measures (*.tmdl)' } else { 'Report visuals (visual.json)' }
+    $colorCount = @{}
+    $whereSeen  = @{}
+    $standalone = @{}
+    $hostCount  = 0
+    $payloadCount = 0
+
+    foreach ($hostFile in (Get-PayloadHostFile -PbipDir $PbipDir -Kind $kind)) {
+        if ((Get-FileEncodingKind -Path $hostFile.FullName) -in @('Utf16', 'Other')) {
+            Write-Warning "  Skipped (not UTF-8): $($hostFile.Name)"
+            continue
+        }
+        $text = [System.IO.File]::ReadAllText($hostFile.FullName)
+        $payloads = @(Get-SvgPayload -Text $text -Kind $kind)
+        if ($payloads.Count -eq 0) { continue }
+
+        $hostCount++
+        $payloadCount += $payloads.Count
+        $seen = @{}
+        foreach ($payload in $payloads) {
+            foreach ($m in (Get-ColorTokenMatch -Text $payload.Svg)) {
+                $c = Get-CanonicalHex -Token $m.Value
+                if (-not $seen.ContainsKey($c)) {
+                    $seen[$c] = $true
+                    if ($colorCount.ContainsKey($c)) { $colorCount[$c]++ } else { $colorCount[$c] = 1 }
+                    if (-not $whereSeen.ContainsKey($c)) { $whereSeen[$c] = @() }
+                    $whereSeen[$c] += $hostFile.Name
+                }
+            }
+        }
+        if ($kind -eq 'Dax') {
+            foreach ($c in (Get-StandaloneColorLiteral -Text $text -Payload $payloads)) { $standalone[$c] = $true }
+        }
+    }
+
+    Write-Host "Source : $label"
+    Write-Host "Files  : $hostCount carrying $payloadCount embedded SVG(s)"
+    Write-Host "Colors : $($colorCount.Count) unique hex colors found"
+    Write-Host ""
+    foreach ($kv in $colorCount.GetEnumerator() | Sort-Object Value -Descending) {
+        Write-Host ("  {0}  ({1} files)" -f $kv.Key, $kv.Value)
+        $results += [pscustomobject]@{
+            Report    = $label
+            Color     = $kv.Key
+            FileCount = $kv.Value
+        }
+    }
+    if ($standalone.Count -gt 0) {
+        Write-Host ""
+        Write-Host "  Beside an SVG but not inside it - NOT rewritten by recolor.ps1:"
+        Write-Host ("    " + (($standalone.Keys | Sort-Object) -join ', '))
+        Write-Host "    The dynamic-icon pattern puts the color in its own literal, so the tool"
+        Write-Host "    cannot tell it from any other color-shaped string in the model."
+    }
+    Write-Host ""
+}
+
 # Every .Report was skipped for lack of RegisteredResources: nothing was even
 # looked at. Exiting 0 here would read as success to a human and to a caller.
-if ($processedReports -eq 0) {
+if ($doResources -and $processedReports -eq 0) {
     Write-Error "No RegisteredResources folder found in any .Report under: $PbipDir"
     exit 1
 }

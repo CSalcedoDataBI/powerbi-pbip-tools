@@ -61,6 +61,7 @@ Con `-PassThru` devuelve objetos (`Report`, `Color`, `FileCount`) en vez de text
 |---|---|---|
 | `-PbipDir` | obligatorio | Carpeta del proyecto PBIP. Se recorren **todas** las carpetas `.Report` que contenga |
 | `-PassThru` | switch | Emite objetos en vez de imprimir un informe |
+| `-Scope` | `Resources`\|`Dax`\|`Visuals`\|`All` | Igual que en `recolor.ps1`. Por defecto `Resources` |
 
 ### `recolor.ps1`
 
@@ -73,8 +74,54 @@ Con `-PassThru` devuelve objetos (`Report`, `Color`, `FileCount`) en vez de text
 | `-Backup` | switch | Copia los SVG antes de escribir |
 | `-BackupRoot` | ruta | Dónde va la copia. Por defecto **fuera** del proyecto, para que no acabe siendo entrada del siguiente escaneo |
 | `-WhatIf` | switch | No escribe nada; informa de lo que haría |
+| `-Scope` | `Resources`\|`Dax`\|`Visuals`\|`All` | Dónde buscar. Por defecto `Resources` |
 
 Un hex inválido se rechaza antes de tocar un archivo. `#0078D4` y `#0078D480` **no** son el mismo color: el segundo lleva alfa, y sustituir uno por otro cambiaría la opacidad del icono.
+
+## Dónde vive un icono: `-Scope`
+
+Un informe guarda iconos en tres sitios, y solo uno es una carpeta de `.svg`:
+
+| `-Scope` | Qué mira | Archivo |
+|---|---|---|
+| `Resources` *(defecto)* | los `.svg` sueltos | `StaticResources/RegisteredResources/*.svg` |
+| `Dax` | SVG devueltos por una medida | `*.SemanticModel/**/*.tmdl` |
+| `Visuals` | SVG en base64 pegados en un visual | `*.Report/**/visual.json` |
+| `All` | los tres | |
+
+Esto existe porque hoy alguien recolorea su proyecto, lee **`184/184`**, abre
+Power BI y los iconos de la matriz siguen azules: venían de DAX, no de la carpeta.
+
+```powershell
+.\scripts\detect-colors.ps1 -PbipDir "C:\MiProyecto" -Scope All
+.\scripts\recolor.ps1 -PbipDir "C:\MiProyecto" -To "#DC143C" -Scope All -WhatIf
+.\scripts\recolor.ps1 -PbipDir "C:\MiProyecto" -To "#DC143C" -Scope All -Backup
+```
+
+El defecto sigue siendo `Resources`: cualquier invocación que ya existía significa
+exactamente lo mismo que antes.
+
+**`-Scope Dax` escribe en el modelo, no en un icono.** Un fallo ahí no estropea un
+dibujo, impide abrir el informe — así que se niega a correr sin `-Backup` o
+`-WhatIf`. No es una molestia, es la diferencia entre perder un icono y perder el
+archivo.
+
+### El color que está al lado del SVG, no dentro
+
+El patrón de icono dinámico saca el color a su propio literal:
+
+```dax
+VAR Color = IF ( [Ventas] >= [Objetivo], "%230078D4", "%23D13438" )
+VAR Svg   = "data:image/svg+xml;utf8,<svg ... fill='" & Color & "'/>"
+```
+
+Solo el segundo literal lleva un SVG, así que solo el segundo se reescribe. El
+primero **no se toca**: hacerlo sería decidir que cualquier cadena con forma de
+color en el modelo alimenta un icono, y puede ser un hex que el usuario muestra en
+un tooltip. Pero **se avisa**, con el color y el archivo, porque callárselo
+reproduce un nivel más abajo el mismo fallo que este scope vino a quitar.
+
+No cubierto todavía: los SVG dentro de `StaticResources/SharedResources/BaseThemes/*.json`.
 
 ## Alcance y límites
 
@@ -115,7 +162,8 @@ skill-svg-recolor-powerbi/
 ├── README.md         ← guía larga con ejemplos
 ├── modules/
 │   ├── ColorTokens.psm1   qué es un color
-│   └── PbipIo.psm1        dónde están los SVG y cómo están codificados
+│   ├── PbipIo.psm1        dónde están los SVG y cómo están codificados
+│   └── SvgPayload.psm1    SVG dentro de .tmdl y visual.json
 └── scripts/
     ├── detect-colors.ps1
     └── recolor.ps1

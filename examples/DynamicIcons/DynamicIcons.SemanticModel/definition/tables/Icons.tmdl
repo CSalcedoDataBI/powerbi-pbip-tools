@@ -1,0 +1,41 @@
+table Icons
+
+	measure 'Status Icon' = ```
+			VAR Color =
+			    IF ( [Total Sales] >= [Target], "%230078D4", "%23D13438" )
+			VAR Svg =
+			    "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><circle cx='8' cy='8' r='7' fill='" & Color & "'/></svg>"
+			RETURN
+			    Svg
+			```
+		dataCategory: ImageUrl
+		lineageTag: 6f1c2c3a-0001-4a10-9f2c-1a2b3c4d5e6f
+
+	/// A fixed badge, so the file carries a color that is not built by an IF.
+	/// The url(%23grad) below is a fragment reference, not a color: the recolor
+	/// tool must leave it exactly as it is.
+	measure 'Fixed Badge' = ```
+			"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='16' height='16'><defs><linearGradient id='grad'><stop stop-color='%230078D4'/></linearGradient></defs><rect width='16' height='16' fill='url(%23grad)' stroke='%230078D4'/></svg>"
+			```
+		dataCategory: ImageUrl
+		lineageTag: 6f1c2c3a-0002-4a10-9f2c-1a2b3c4d5e6f
+
+	/// Deliberately NOT an SVG. Nothing here may ever be rewritten - the string
+	/// is a label, and "#0078D4" inside it is text a user typed.
+	measure 'Palette Note' = "Brand primary is #0078D4 - do not change"
+		lineageTag: 6f1c2c3a-0003-4a10-9f2c-1a2b3c4d5e6f
+
+	column Category
+		dataType: string
+		lineageTag: 6f1c2c3a-0004-4a10-9f2c-1a2b3c4d5e6f
+		summarizeBy: none
+		sourceColumn: Category
+
+	partition Icons = m
+		mode: import
+		source = ```
+				let
+				    Source = Table.FromRows({{"A"}, {"B"}}, {"Category"})
+				in
+				    Source
+				```

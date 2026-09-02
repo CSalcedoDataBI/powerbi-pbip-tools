@@ -25,6 +25,8 @@ Automatically change the color of **all SVG icons** in your Power BI PBIP projec
 
 **Scope:** presentation attributes (`fill`, `stroke`, `stop-color`, …) on icon SVGs, in all four hex forms, preserving each file's encoding. Notations it cannot rewrite — `rgb()`, `hsl()`, `var()`, `currentColor`, CSS named colours — are **reported rather than silently skipped**. The full contract is in [SKILL.md](skills/skill-svg-recolor-powerbi/SKILL.md).
 
+**Icons are not only in the folder.** `-Scope Dax|Visuals|All` also reaches SVGs returned by a DAX measure (`*.tmdl`) and base64 SVGs pasted into a visual (`visual.json`) — the reason a project can report `184/184` and still open blue in Power BI. Worked example: [`examples/DynamicIcons`](examples/DynamicIcons/README.md).
+
 **Clone only this skill:**
 ```bash
 git clone --filter=blob:none --sparse https://github.com/CSalcedoDataBI/powerbi-pbip-tools.git
@@ -194,6 +196,7 @@ git sparse-checkout set examples/DAX-User-Defined-Functions
 - **[Semantic Architect ES](skills/skill-semantic-architect-powerbi/SKILL.md)** - Documentación en español
 - **[Semantic Architect EN](skills/skill-semantic-architect-powerbi/SKILL.en.md)** - Full English specification
 - **[DAX User-Defined Functions example](examples/DAX-User-Defined-Functions/README.md)** - Reference PBIP project with 6 UDFs and 11 measures
+- **[DynamicIcons example](examples/DynamicIcons/README.md)** - PBIP whose icons live in DAX measures and `visual.json`, not in a folder
 
 ---
 

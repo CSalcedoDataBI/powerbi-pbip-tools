@@ -42,7 +42,11 @@ param (
     [string[]]$Exclude,
     [switch]$Backup,
     [string]$BackupRoot,
-    [switch]$WhatIf
+    [switch]$WhatIf,
+    # Default 'Resources' on purpose: every existing invocation keeps meaning
+    # exactly what it meant. Widening the default would have silently started
+    # writing to .tmdl for people who only ever asked about icons.
+    [ValidateSet('Resources', 'Dax', 'Visuals', 'All')][string]$Scope = 'Resources'
 )
 
 # Import-Module, not dot-sourcing: the patterns and encodings stay inside the
@@ -51,6 +55,7 @@ param (
 $moduleDir = Join-Path (Split-Path $PSScriptRoot -Parent) 'modules'
 Import-Module (Join-Path $moduleDir 'ColorTokens.psm1') -Force
 Import-Module (Join-Path $moduleDir 'PbipIo.psm1') -Force
+Import-Module (Join-Path $moduleDir 'SvgPayload.psm1') -Force
 
 # --- Validate color arguments ---
 if (-not (Test-HexColor -Value $To)) {
@@ -76,10 +81,25 @@ foreach ($c in $Exclude) {
     }
 }
 
+# --- What this run is allowed to touch ---
+$doResources = $Scope -in @('Resources', 'All')
+$doDax       = $Scope -in @('Dax', 'All')
+$doVisuals   = $Scope -in @('Visuals', 'All')
+
+# A .tmdl file is not an icon, it is the model. A bad substitution in an .svg
+# spoils a picture; the same mistake here stops the report from opening. So the
+# net is not optional: either preview it, or have a copy on disk first.
+if ($doDax -and -not $WhatIf -and -not $Backup) {
+    Write-Error ("-Scope $Scope writes to .tmdl files, which are the semantic model itself. " +
+                 "Re-run with -WhatIf to see what would change, or with -Backup to keep a copy. " +
+                 "Nothing has been modified.")
+    exit 1
+}
+
 # --- Locate all .Report folders (supports multiple reports in one project) ---
 # -LiteralPath throughout: brackets in a folder name are wildcards to -Path.
-$reportDirs = Get-ChildItem -LiteralPath $PbipDir -Filter "*.Report" -Directory
-if (-not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
+$reportDirs = if ($doResources) { @(Get-ChildItem -LiteralPath $PbipDir -Filter "*.Report" -Directory) } else { @() }
+if ($doResources -and -not $reportDirs) { Write-Error "No .Report folder found in: $PbipDir"; exit 1 }
 
 if (-not $BackupRoot) { $BackupRoot = [System.IO.Path]::GetTempPath() }
 
@@ -88,6 +108,11 @@ $totalChanged = 0
 $totalFiles = 0
 $processedReports = 0
 $writeFailures = 0
+$standaloneColors = @{}
+$standaloneFiles  = @{}
+$payloadFilesChanged = 0
+$payloadFilesSeen    = 0
+$payloadColorsChanged = 0
 $unsupportedSeen = @{}
 $scannedForUnsupported = @{}
 $filesWithUnsupported = @{}
@@ -207,6 +232,93 @@ foreach ($reportDir in $reportDirs) {
                  SourceSet = $sourceSet; AllFileCount = $allFiles.Count })
 }
 
+# ---- Payloads: SVGs that live inside .tmdl and visual.json --------------------
+# Same two-pass discipline as above. Discovery and backup for every host file
+# happen here, before pass 2 writes its first byte, so a project can never end up
+# with the icons recolored and the model's backup having failed.
+$payloadPlan = [System.Collections.Generic.List[object]]::new()
+$payloadKinds = @()
+if ($doDax)     { $payloadKinds += 'Dax' }
+if ($doVisuals) { $payloadKinds += 'Visual' }
+
+foreach ($kind in $payloadKinds) {
+    foreach ($hostFile in (Get-PayloadHostFile -PbipDir $PbipDir -Kind $kind)) {
+        if ($hostFile.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+            Write-Warning "  Skipped (link, writes would land outside the project): $($hostFile.Name)"
+            continue
+        }
+        $encKind = Get-FileEncodingKind -Path $hostFile.FullName
+        if ($encKind -eq 'Utf16' -or $encKind -eq 'Other') {
+            Write-Warning "  Skipped (not UTF-8, would be re-encoded): $($hostFile.Name)"
+            continue
+        }
+
+        $text = [System.IO.File]::ReadAllText($hostFile.FullName)
+        $payloads = @(Get-SvgPayload -Text $text -Kind $kind)
+        if ($payloads.Count -eq 0) { continue }
+
+        $payloadFilesSeen++
+        # Colors that sit in their own literal next to an SVG payload: the
+        # dynamic-icon pattern. Not rewritten - see Get-StandaloneColorLiteral -
+        # but named at the end, because a run that changed the file and left the
+        # icon blue is the failure this scope was added to remove.
+        if ($kind -eq 'Dax') {
+            foreach ($c in (Get-StandaloneColorLiteral -Text $text -Payload $payloads)) {
+                $standaloneColors[$c] = $true
+                $standaloneFiles[$hostFile.FullName] = $true
+            }
+        }
+        $payloadPlan.Add(@{ File = $hostFile; Kind = $kind; EncodingKind = $encKind
+                            Text = $text; Payloads = $payloads })
+    }
+}
+
+# Which colors to replace inside payloads. Computed here, over the payloads
+# themselves, rather than reusing a report's set: an embedded SVG can carry a
+# color that appears in no loose .svg at all - that is the whole point of #13 -
+# and inheriting the folder's set would leave exactly those untouched.
+$payloadExclude = @{}
+foreach ($e in $Exclude) { $payloadExclude[(Get-CanonicalHex -Token $e)] = $true }
+$payloadExclude[$toCanonical] = $true
+$payloadSourceSet = @{}
+if ($From -and $From.Count -gt 0) {
+    foreach ($c in $From) {
+        $canonical = Get-CanonicalHex -Token $c
+        if (-not $payloadExclude.ContainsKey($canonical)) { $payloadSourceSet[$canonical] = $true }
+    }
+} else {
+    foreach ($entry in $payloadPlan) {
+        foreach ($payload in $entry.Payloads) {
+            foreach ($m in (Get-ColorTokenMatch -Text $payload.Svg)) {
+                $canonical = Get-CanonicalHex -Token $m.Value
+                if (-not $payloadExclude.ContainsKey($canonical)) { $payloadSourceSet[$canonical] = $true }
+            }
+        }
+    }
+    if ($payloadPlan.Count -gt 0 -and $payloadSourceSet.Count -gt 0) {
+        Write-Host "[embedded] Auto-detected: $(($payloadSourceSet.Keys | Sort-Object) -join ', ')"
+    }
+}
+
+if ($payloadPlan.Count -gt 0 -and $Backup -and -not $WhatIf) {
+    $payloadBackup = Join-Path $BackupRoot "pbip-recolor-backup_payloads_$(Get-Date -Format 'yyyyMMdd_HHmmss')"
+    try {
+        New-Item -ItemType Directory -Path $payloadBackup -ErrorAction Stop | Out-Null
+        foreach ($entry in $payloadPlan) {
+            # Flattened with the source folder in the name: visual.json is the same
+            # file name in every visual, and Copy-Item would overwrite the previous
+            # one, leaving a "backup" holding a single file out of nine.
+            $rel = $entry.File.FullName.Substring($PbipDir.Length).TrimStart('\', '/')
+            $safe = ($rel -replace '[\\/]', '__')
+            Copy-Item -LiteralPath $entry.File.FullName -Destination (Join-Path $payloadBackup $safe) -ErrorAction Stop
+        }
+    } catch {
+        Write-Error "Backup of embedded-SVG files failed - NOTHING has been modified yet. $($_.Exception.Message)"
+        exit 1
+    }
+    Write-Host "Backup of $($payloadPlan.Count) embedded-SVG file(s) saved to: $payloadBackup"
+}
+
 # ---- Pass 2: nothing below here can refuse; every backup is already on disk --
 foreach ($entry in $plan) {
     $reportDir = $entry.Report
@@ -272,10 +384,60 @@ foreach ($entry in $plan) {
     Write-Host "[$($reportDir.Name)] $action $changed/$($entry.AllFileCount) SVGs (-> $To)"
 }
 
+foreach ($entry in $payloadPlan) {
+    $text = $entry.Text
+    $changedHere = 0
+
+    foreach ($payload in $entry.Payloads) {
+        # ColorTokens runs on the DECODED SVG, so url(#id), CSS id selectors and
+        # 8-digit hex are judged by the same code that judges a loose .svg - not
+        # by a second, weaker rule written against a percent-encoded string.
+        $svg = $payload.Svg
+        $newSvg = $svg
+        $candidates = @(Get-ColorTokenMatch -Text $svg)
+        for ($i = $candidates.Count - 1; $i -ge 0; $i--) {
+            $m = $candidates[$i]
+            $canonical = Get-CanonicalHex -Token $m.Value
+            if ($payloadSourceSet.ContainsKey($canonical)) {
+                $newSvg = $newSvg.Remove($m.Index, $m.Length).Insert($m.Index, $To)
+                $changedHere++
+            }
+        }
+        $payload.NewSvg = $newSvg
+
+        foreach ($kv in (Get-UnsupportedNotation -Text $svg).GetEnumerator()) {
+            if ($unsupportedSeen.ContainsKey($kv.Key)) { $unsupportedSeen[$kv.Key] += $kv.Value }
+            else { $unsupportedSeen[$kv.Key] = $kv.Value }
+            $filesWithUnsupported[$entry.File.FullName] = $true
+        }
+    }
+
+    if ($changedHere -eq 0) { continue }
+
+    $newText = Join-SvgPayload -Text $text -Payload $entry.Payloads
+    if ($newText -eq $text) { continue }
+
+    $label = if ($entry.Kind -eq 'Dax') { 'DAX' } else { 'visual' }
+    if ($WhatIf) {
+        Write-Host "  [WhatIf] Would modify ($label): $($entry.File.Name) - $changedHere color(s)"
+    } else {
+        try {
+            [System.IO.File]::WriteAllText($entry.File.FullName, $newText, (Get-Utf8Encoding -Kind $entry.EncodingKind))
+        } catch {
+            Write-Warning "  Could not write $($entry.File.Name): $($_.Exception.Message)"
+            $writeFailures++
+            continue
+        }
+        Write-Host "  Modified ($label): $($entry.File.Name) - $changedHere color(s)"
+    }
+    $payloadFilesChanged++
+    $payloadColorsChanged += $changedHere
+}
+
 # Every .Report was skipped for lack of RegisteredResources: nothing was even
 # looked at. Exiting 0 with "0/0 SVGs updated" reads as success to a human and
 # to any script calling this one.
-if ($processedReports -eq 0) {
+if ($doResources -and $processedReports -eq 0) {
     Write-Error "No RegisteredResources folder found in any .Report under: $PbipDir"
     exit 1
 }
@@ -299,6 +461,17 @@ if ($writeFailures -gt 0) {
     Write-Host ""
     Write-Error "$writeFailures file(s) could not be written (see the warnings above). Nothing else was rolled back."
     exit 1
+}
+
+if ($standaloneColors.Count -gt 0) {
+    Write-Host ""
+    Write-Warning ("{0} color literal(s) sit beside an SVG in {1} DAX file(s) and were NOT rewritten:" -f `
+                   $standaloneColors.Count, $standaloneFiles.Count)
+    Write-Host ("    " + (($standaloneColors.Keys | Sort-Object) -join ', '))
+    Write-Host "    They are their own literal, not part of the SVG - the dynamic-icon pattern,"
+    Write-Host "    e.g. VAR Color = IF(..., '%230078D4', ...). Rewriting them would mean deciding"
+    Write-Host "    that any color-shaped string in the model feeds an icon. Change them by hand if"
+    Write-Host "    they do."
 }
 
 if ($unsupportedSeen.Count -gt 0) {

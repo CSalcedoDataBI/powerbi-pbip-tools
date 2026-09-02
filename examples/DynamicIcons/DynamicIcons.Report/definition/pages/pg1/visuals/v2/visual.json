@@ -1,0 +1,13 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/1.0.0/schema.json",
+  "name": "v2",
+  "position": { "x": 340, "y": 0, "z": 1, "width": 320, "height": 200 },
+  "visual": {
+    "visualType": "image",
+    "objects": {
+      "general": [
+        { "properties": { "imageUrl": { "expr": { "Literal": { "Value": "'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxNiIgaGVpZ2h0PSIxNiI+PHJlY3Qgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjMDA3OEQ0Ii8+PC9zdmc+'" } } } } }
+      ]
+    }
+  }
+}

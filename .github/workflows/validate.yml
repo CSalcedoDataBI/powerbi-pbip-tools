@@ -4,6 +4,7 @@
 #   2. Smoke test de detect-colors + recolor contra una copia de examples/Demo
 #   3. Tests de tokens de color sobre un fixture sintetico (RGBA, #RGB, rgb(), BOM)
 #   4. Tests de Inline-ChartJs: el aviso MIT viaja en cada dashboard convertido
+#   5. Tests de SVG embebidos: -Scope Dax/Visuals contra examples/DynamicIcons
 name: Validate scripts
 
 on:
@@ -18,6 +19,7 @@ on:
       - 'tools/**/*.ps1'
       - 'tests/**'
       - 'examples/Demo/**'
+      - 'examples/DynamicIcons/**'
       - 'PSScriptAnalyzerSettings.psd1'
       - '.github/workflows/validate.yml'
 
@@ -105,3 +107,7 @@ jobs:
       - name: Inline-ChartJs tests
         shell: pwsh
         run: ./tests/inline-chartjs-test.ps1
+
+      - name: Embedded-SVG tests (-Scope Dax / Visuals)
+        shell: pwsh
+        run: ./tests/embedded-svg-test.ps1
