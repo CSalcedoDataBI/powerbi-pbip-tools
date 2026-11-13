@@ -23,8 +23,8 @@ workspace data. If the diff adds them, it is fixed.
 - **Required check:** `validate` (job `validate` of `.github/workflows/validate.yml`, GitHub-hosted
   `ubuntu-latest`; it runs on every PR to `main` and on `workflow_dispatch`).
 - **Test command** (the same steps as CI, PowerShell 7):
-  `Invoke-ScriptAnalyzer -Path skills,tests,tools -Recurse -Settings ./PSScriptAnalyzerSettings.psd1`
-  (PSScriptAnalyzer 1.25.0, no Error or Warning allowed), then `./tests/smoke-test.ps1`,
+  `'skills','tests','tools' | ForEach-Object { Invoke-ScriptAnalyzer -Path $_ -Recurse -Settings ./PSScriptAnalyzerSettings.psd1 }`
+  (PSScriptAnalyzer 1.25.0, one folder per call as in `validate.yml`, no Error or Warning allowed), then `./tests/smoke-test.ps1`,
   `./tests/color-tokens-test.ps1`, `./tests/inline-chartjs-test.ps1` and `./tests/embedded-svg-test.ps1`.
 - **Merge method:** `--squash` (the PR title becomes the conventional commit release-please reads).
 

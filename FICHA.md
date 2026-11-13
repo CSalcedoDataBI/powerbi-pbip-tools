@@ -91,4 +91,4 @@ the PR names it.
 
 ## Aprobación
 
-Aprobada: 2026-11-12 (parent, por delegación, re-approved with the tag line after the experto's review; Cristóbal en el chat del 2026-11-12: «crea todos los expertos faltantes, revisar que se hagan bien»)
+Aprobada: 2026-11-12 (parent, by delegation, re-approved after the review panel; Cristóbal in the chat of 2026-11-12: «crea todos los expertos faltantes, revisar que se hagan bien»)
