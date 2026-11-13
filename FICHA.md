@@ -75,8 +75,8 @@ What is not touched without a plan step that names it:
   `PSScriptAnalyzerSettings.psd1`, then `./tests/smoke-test.ps1`, `./tests/color-tokens-test.ps1`,
   `./tests/inline-chartjs-test.ps1` and `./tests/embedded-svg-test.ps1` (each exits non-zero on failure).
 - **Runner:** GitHub (public repo).
-- **Formato de tag:** `vX.Y.Z`. No tag yet: the `[1.0.0]` of `CHANGELOG.md` is commit `d9a267b`, which
-  release-please counts from (`bootstrap-sha`, manifest `1.0.0`); its first release PR brings the first
+- **Formato de tag:** `vX.Y.Z`. No tag yet: the `[1.0.0]` of `CHANGELOG.md` covers everything up to commit
+  `d9a267b`, the last one before the `[Unreleased]` work, and release-please counts from there (`bootstrap-sha`, manifest `1.0.0`); its first release PR brings the first
   tag, and from then on release-please decides the number.
 - **Experto:** `.claude/agents/experto.md`
 - **Directory plugin?:** no.
@@ -91,4 +91,4 @@ the PR names it.
 
 ## Aprobación
 
-Aprobada: 2026-11-12 (parent, por delegación, re-approved with the tag line; Cristóbal en el chat del 2026-11-12: «crea todos los expertos faltantes, revisar que se hagan bien»)
+Aprobada: 2026-11-12 (parent, por delegación, re-approved with the tag line after the experto's review; Cristóbal en el chat del 2026-11-12: «crea todos los expertos faltantes, revisar que se hagan bien»)
