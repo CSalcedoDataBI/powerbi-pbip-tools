@@ -36,5 +36,6 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_JSON: ${{ steps.rp.outputs.pr }}
         run: |
-          branch=$(jq -r '.headBranchName' <<< "$PR_JSON")
+          # -e: a PR output without headBranchName fails here, not later as '--ref null'.
+          branch=$(jq -er '.headBranchName' <<< "$PR_JSON")
           gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
