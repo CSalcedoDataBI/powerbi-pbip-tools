@@ -28,9 +28,14 @@ jobs:
 
       # The release PR is opened with GITHUB_TOKEN, which starts no workflow: dispatch the CI on its
       # branch so the required check 'validate' shows up on the release PR head.
+      # The PR output is parsed inside the step with jq, not with fromJSON in env: the env block is
+      # evaluated even when the output is empty, and fromJSON('') fails the whole job.
       - name: Run validate on the release PR
-        if: ${{ steps.rp.outputs.pr != '' }}
+        if: ${{ success() && steps.rp.outputs.pr != '' }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BRANCH: ${{ fromJSON(steps.rp.outputs.pr).headBranchName }}
-        run: gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
+          PR_JSON: ${{ steps.rp.outputs.pr }}
+        run: |
+          # -e: a PR output without headBranchName fails here, not later as '--ref null'.
+          branch=$(jq -er '.headBranchName' <<< "$PR_JSON")
+          gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$branch"
