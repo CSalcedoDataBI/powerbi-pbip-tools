@@ -2,4 +2,5 @@
 # Artefactos locales de herramientas
 .codegraph/
 .cursor/
-.agentic-board/
+.agentic-board/*
+!.agentic-board/config.json

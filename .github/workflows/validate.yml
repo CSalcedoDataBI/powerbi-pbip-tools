@@ -9,19 +9,14 @@ name: Validate scripts
 
 on:
   pull_request:
+    branches: [main]
     types: [opened, reopened, synchronize, ready_for_review]
-    # Solo cuando cambia algo que estas comprobaciones puedan romper.
-    # No hay check requerido en este repo, asi que una PR que no toque estas
-    # rutas simplemente no dispara el workflow y no se queda colgada esperandolo.
-    paths:
-      - 'skills/**/*.ps1'
-      - 'skills/**/*.psm1'
-      - 'tools/**/*.ps1'
-      - 'tests/**'
-      - 'examples/Demo/**'
-      - 'examples/DynamicIcons/**'
-      - 'PSScriptAnalyzerSettings.psd1'
-      - '.github/workflows/validate.yml'
+    # No paths filter: 'validate' is the required check of the main ruleset, and a
+    # filtered-out PR would wait forever for a check that never starts. The repo is
+    # public, so GitHub-hosted minutes are free and a docs-only run costs nothing.
+  # release-please opens its PR with GITHUB_TOKEN, which starts no workflow, so
+  # release-please.yml dispatches this one on the release branch.
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

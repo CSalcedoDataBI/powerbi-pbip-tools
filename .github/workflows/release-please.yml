@@ -1,0 +1,36 @@
+name: release-please
+
+# release-please reads the conventional commits on main and keeps one release PR open with the next
+# version and its CHANGELOG. Merging that PR creates the vX.Y.Z tag and its GitHub Release.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+# A release cancelled halfway leaves tags and PRs inconsistent: never cancel in progress.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - id: rp
+        uses: googleapis/release-please-action@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # The release PR is opened with GITHUB_TOKEN, which starts no workflow: dispatch the CI on its
+      # branch so the required check 'validate' shows up on the release PR head.
+      - name: Run validate on the release PR
+        if: ${{ steps.rp.outputs.pr != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ fromJSON(steps.rp.outputs.pr).headBranchName }}
+        run: gh workflow run validate.yml --repo "$GITHUB_REPOSITORY" --ref "$BRANCH"
